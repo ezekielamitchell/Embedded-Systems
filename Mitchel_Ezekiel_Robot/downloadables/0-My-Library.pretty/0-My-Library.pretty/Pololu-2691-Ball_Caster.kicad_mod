@@ -1,0 +1,113 @@
+(footprint "Pololu-2691-Ball_Caster"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0 -0.5 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "8522c5ff-c678-47d6-8649-50b7ed061925")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "Pololu-2691-Ball_Caster"
+		(at 0 1 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "8d5925d6-e55d-4c1d-a4a0-49218eb1672b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "b216fe3b-ea4f-42a0-8d89-99af8c24300a")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "54c7e20b-7e89-47fb-932c-2d54edf47c50")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(fp_circle
+		(center 0 0)
+		(end 7 0)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "562c59c7-e8cd-4f9e-ba17-ed40eae4f6a9")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 17 0)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "36471c49-c764-45b4-8a61-69cc0687dd76")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 2.5 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "674afcc4-7076-4e2d-84b3-672cba4359d5")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "" np_thru_hole circle
+		(at -3.5 -6.062)
+		(size 3.2 3.2)
+		(drill 3.2)
+		(layers "F&B.Cu" "*.Mask")
+		(uuid "96053d86-a031-4b94-90a2-23c25549dc1d")
+	)
+	(pad "" np_thru_hole circle
+		(at -3.5 6.062)
+		(size 3.2 3.2)
+		(drill 3.2)
+		(layers "F&B.Cu" "*.Mask")
+		(uuid "27d95025-3397-497d-97af-9156b2faf036")
+	)
+	(pad "" np_thru_hole circle
+		(at 7 0)
+		(size 3.2 3.2)
+		(drill 3.2)
+		(layers "F&B.Cu" "*.Mask")
+		(uuid "b46fc429-fc80-46cb-bfcd-1aa204cddd9f")
+	)
+	(embedded_fonts no)
+)

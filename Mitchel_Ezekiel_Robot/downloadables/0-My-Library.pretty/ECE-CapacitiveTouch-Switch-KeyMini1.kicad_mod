@@ -1,0 +1,118 @@
+(footprint "ECE-CapacitiveTouch-Switch-KeyMini1"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(property "Reference" "J1"
+		(at 8.8 -14.975 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "f899facc-7c69-434e-86e5-770edcab2e7c")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "A"
+		(at -0.11 -9.36 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "84cde498-e7c1-48ef-bdd0-f1d7af6c61dd")
+		(effects
+			(font
+				(face "Arista 2.0 Alternate")
+				(size 2 2)
+				(thickness 0.15)
+			)
+		)
+		(render_cache "A" 0
+			(polygon
+				(pts
+					(xy 0.810796 -8.53) (xy 0.522467 -8.53) (xy 0.323043 -9.092735) (xy -0.556841 -9.092735) (xy -0.756265 -8.53)
+					(xy -1.030916 -8.53) (xy -0.740395 -9.327208) (xy -0.474897 -9.327208) (xy 0.239634 -9.327208)
+					(xy -0.116959 -10.326039) (xy -0.474897 -9.327208) (xy -0.740395 -9.327208) (xy -0.290372 -10.5621)
+					(xy 0.070252 -10.5621)
+				)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "4f77490a-893a-452b-9938-75889e24a93a")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "coaxial connector (BNC, SMA, SMB, SMC, Cinch/RCA, LEMO, ...)"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "be7f7234-eee2-4b9d-8036-9899c769d106")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_line
+		(start -5.65 -5.65)
+		(end -4.48 -4.48)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(layer "F.Cu")
+		(uuid "e4cc64a1-e007-4e7f-8208-7956bd618b47")
+	)
+	(fp_circle
+		(center 0 0)
+		(end -6.68 -2.44)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(fill yes)
+		(layers "F.Cu" "F.Mask")
+		(uuid "4e77351f-4188-49fa-a460-933bffe75f30")
+	)
+	(fp_circle
+		(center 0 0.000415)
+		(end -8.128 -0.081725)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "e2edf20e-5357-4578-b1aa-c832e01fe29b")
+	)
+	(pad "1" thru_hole circle
+		(at -5.842 -5.842)
+		(size 0.6 0.6)
+		(drill 0.3)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "b8d20877-3090-404d-8fce-bea80eb33dfe")
+	)
+	(pad "2" thru_hole circle
+		(at 6.7818 -5.7912)
+		(size 1.6 1.6)
+		(drill 0.9)
+		(layers "*.Cu")
+		(remove_unused_layers no)
+		(uuid "c7804d25-eddf-442c-b834-56a154b9969e")
+	)
+	(embedded_fonts no)
+)

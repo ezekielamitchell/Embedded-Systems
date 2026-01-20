@@ -1,0 +1,118 @@
+(footprint "Ball-Caster-1"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at -2.286 12.954 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "f4aedac7-b59a-494b-a2b5-464c0b5d7599")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "Ball-Caster-1"
+		(at -0.254 11.176 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "53cf407d-cad4-4937-ba22-2eaf53a11275")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "99a01402-4aea-406a-8f7a-8f92ad86990d")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "f59e9c9a-34a5-4642-8921-7c00fe59a395")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(fp_circle
+		(center 0 0)
+		(end 4 0)
+		(stroke
+			(width 0.15)
+			(type solid)
+		)
+		(fill no)
+		(layer "Cmts.User")
+		(net 6488096)
+		(uuid "b0221004-b5fb-4e89-a1da-8e060e705ab4")
+	)
+	(fp_circle
+		(center 0 38)
+		(end 4 38)
+		(stroke
+			(width 0.15)
+			(type solid)
+		)
+		(fill no)
+		(layer "Cmts.User")
+		(uuid "821d7672-0fca-4568-90ee-ebd1b811dd2c")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 4.25 0)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(net 6488096)
+		(uuid "ee2ec0ec-e93a-48fa-8734-8cfc5136446c")
+	)
+	(fp_circle
+		(center 0 38)
+		(end 4.25 38)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "852aa004-b03c-4789-9e2c-fcadf44abc4f")
+	)
+	(pad "" np_thru_hole circle
+		(at 0 0)
+		(size 4 4)
+		(drill 4)
+		(layers "*.Cu" "*.Mask")
+		(uuid "73046609-76b7-4c06-8cee-00b3dadfe627")
+	)
+	(pad "" np_thru_hole circle
+		(at 0 38)
+		(size 4 4)
+		(drill 4)
+		(layers "*.Cu" "*.Mask")
+		(uuid "8ce9d277-573a-4af0-b925-6d7d113f81ae")
+	)
+	(embedded_fonts no)
+)
