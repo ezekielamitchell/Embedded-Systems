@@ -8814,15 +8814,15 @@
 	(symbol
 		(lib_id "0-My_Library:ECE-ESP32-DEVKITC-32E")
 		(at 107.95 53.34 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "50640d66-c8e7-4369-a3bb-c660ee0f9051")
 		(property "Reference" "U1"
-			(at 102.87 16.51 0)
+			(at 113.03 16.51 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8830,7 +8830,7 @@
 			)
 		)
 		(property "Value" "ESP32-DEVKITC-32E"
-			(at 102.87 19.05 0)
+			(at 113.03 19.05 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8866,7 +8866,7 @@
 			)
 		)
 		(property "PARTREV" "1.4"
-			(at 95.25 53.34 0)
+			(at 120.65 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
