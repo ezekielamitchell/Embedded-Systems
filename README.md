@@ -1,6 +1,6 @@
 # REDHAWK ESP32 Embedded Systems Robot
 
-A custom PCB-based robot designed and built for the **Seattle University Embedded Systems & Design** course. The board is centered around an ESP32 microcontroller and includes motor control, sensing, and interaction peripherals — all laid out in KiCad 9.0.
+A custom PCB-based robot designed and built for the **Seattle University Embedded Systems & Design** course. The board is centered around an ESP32 microcontroller and includes motor control, sensing, and interaction peripherals using KiCad 9.0.
 
 ![PCB Layout](Mitchel_Ezekiel_Robot/docs/images/Mitchel_Ezekiel_Robot.png)
 
