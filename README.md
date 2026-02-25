@@ -2,7 +2,11 @@
 
 A custom PCB-based robot designed and built for the **Seattle University Embedded Systems & Design** course. The board is centered around an ESP32 microcontroller and includes motor control, sensing, and interaction peripherals using KiCad 9.0.
 
-![PCB Layout](Mitchel_Ezekiel_Robot/docs/images/Mitchel_Ezekiel_Robot.png)
+![PCB Layout](Mitchel_Ezekiel_Robot/docs/images/pcb_complete.png)
+
+![PCB 3D Render — Front](Mitchel_Ezekiel_Robot/docs/images/Mitchel_Ezekiel_Robot.png)
+
+![PCB 3D Render — Top](Mitchel_Ezekiel_Robot/docs/images/Mitchel_Ezekiel_Robot%202.png)
 
 ---
 
