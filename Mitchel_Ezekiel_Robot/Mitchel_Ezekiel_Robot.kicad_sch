@@ -8813,7 +8813,7 @@
 	)
 	(symbol
 		(lib_id "0-My_Library:ECE-ESP32-DEVKITC-32E")
-		(at 107.95 53.34 0)
+		(at 97.79 53.34 0)
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
@@ -8822,7 +8822,7 @@
 		(dnp no)
 		(uuid "50640d66-c8e7-4369-a3bb-c660ee0f9051")
 		(property "Reference" "U1"
-			(at 113.03 16.51 0)
+			(at 102.87 16.51 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8830,7 +8830,7 @@
 			)
 		)
 		(property "Value" "ESP32-DEVKITC-32E"
-			(at 113.03 19.05 0)
+			(at 102.87 19.05 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8838,7 +8838,7 @@
 			)
 		)
 		(property "Footprint" "0-My-Library:MODULE_ESP32-DEVKITC-32E"
-			(at 107.95 53.34 0)
+			(at 97.79 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8848,7 +8848,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 107.95 53.34 0)
+			(at 97.79 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8857,7 +8857,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 107.95 53.34 0)
+			(at 97.79 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8866,7 +8866,7 @@
 			)
 		)
 		(property "PARTREV" "1.4"
-			(at 120.65 53.34 0)
+			(at 110.49 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8876,7 +8876,7 @@
 			)
 		)
 		(property "STANDARD" "Manufacturer Recommendations"
-			(at 107.95 53.34 0)
+			(at 97.79 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8886,7 +8886,7 @@
 			)
 		)
 		(property "MANUFACTURER" "Espressif Systems"
-			(at 107.95 53.34 0)
+			(at 97.79 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
