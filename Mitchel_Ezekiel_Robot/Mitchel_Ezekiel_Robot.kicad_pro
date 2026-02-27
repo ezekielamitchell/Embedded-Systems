@@ -543,14 +543,14 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "",
+      "plot": "../../../Desktop/EzekielA-Black-Gerbers/",
       "pos_files": "",
       "specctra_dsn": "",
       "step": "",
       "svg": "",
       "vrml": ""
     },
-    "page_layout_descr_file": ""
+    "page_layout_descr_file": "Ezekiel A. Mitchell Robot"
   },
   "schematic": {
     "annotate_start_num": 0,
