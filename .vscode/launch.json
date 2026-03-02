@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/house/Developer/Embedded-Systems/PowerOn_Functional_Test/src",
+      "program": "/Users/house/Developer/Embedded-Systems/PowerOn_Functional_Test/src/build/Debug/outDebug"
+    }
+  ]
+}
