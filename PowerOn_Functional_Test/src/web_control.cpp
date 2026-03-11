@@ -77,8 +77,7 @@ static void handleLedsOn()
 
 static void handleLedsOff()
 {
-    digitalWrite(FRONTLAMPS, HIGH);
-    sleep(10);
+    digitalWrite(FRONTLAMPS, LOW);
     digitalWrite(REARLAMPS, LOW);
     server.send(200, "text/plain", "LEDs OFF");
 }
