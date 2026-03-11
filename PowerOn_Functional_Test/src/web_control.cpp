@@ -77,9 +77,20 @@ static void handleLedsOn()
 
 static void handleLedsOff()
 {
-    digitalWrite(FRONTLAMPS, LOW);
+    digitalWrite(FRONTLAMPS, HIGH);
+    sleep(10);
     digitalWrite(REARLAMPS, LOW);
     server.send(200, "text/plain", "LEDs OFF");
+}
+
+static void dance() {
+  digitalWrite(FRONTLAMPS, HIGH);
+  sleep(1);
+  digitalWrite(REARLAMPS, HIGH);
+  sleep(1);
+  digitalWrite(REARLAMPS, LOW);
+  sleep(1);
+  digitalWrite(FRONTLAMPS, LOW);
 }
 
 static void handleMotorFwd()

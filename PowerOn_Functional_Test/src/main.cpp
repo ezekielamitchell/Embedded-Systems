@@ -36,7 +36,7 @@ void beep(int count, int onMs, int offMs) {
     }
 }
 
-void blinkLamp(int pin, int count, int onMs, int offMs) m{
+void blinkLamp(int pin, int count, int onMs, int offMs) {
     for (int i = 0; i < count; i++) {
         digitalWrite(pin, HIGH);
         delay(onMs);
@@ -92,8 +92,8 @@ void testLEDs() {
 }
 
 void testLightSensor() {
-    Serial.println("TEST 3: Light Sensor - cover/uncover now (60 s)");
-    beep(2, 600, 400);
+    Serial.println("TEST 3: Light Sensor - cover/uncover now (10 s)");
+    beep(2, 100, 400);
 
     // Establish baseline from 10 samples
     long sampleSum = 0;
@@ -103,7 +103,7 @@ void testLightSensor() {
     Serial.println("  ADC readings (every 500 ms):");
 
     unsigned long testStart = millis();
-    while (millis() - testStart < 60000UL) {
+    while (millis() - testStart < 10000UL) {
         int reading = analogRead(DAYNIGHT);
         bool dark = abs(reading - baseline) > 200;
         digitalWrite(FRONTLAMPS, dark ? HIGH : LOW);
