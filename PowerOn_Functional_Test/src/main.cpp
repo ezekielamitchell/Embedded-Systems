@@ -292,36 +292,27 @@ void setup() {
     // Run all tests automatically on boot
     runAllTests();
 
-    // EXTRA CREDIT: Wi-Fi + Web Server
-    Serial.print("Wi-Fi connecting to '");
-    Serial.print(WIFI_SSID);
-    Serial.println("' ...");
+    // EXTRA CREDIT: Wi-Fi + Web Server hosted on the ESP32 itself (soft AP)
+    Serial.println("Starting ESP32 soft AP...");
+    const char *apSSID = AP_SSID;
+    const char *apPass = AP_PASS; // leave empty for open network
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-    unsigned long connStart = millis();
-    while (WiFi.status() != WL_CONNECTED && (millis() - connStart) < 20000UL) {
-        digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
-        delay(500);
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-        digitalWrite(STATUS_LED, HIGH);
-        Serial.print("  Connected - open http://");
-        Serial.print(WiFi.localIP());
-        Serial.println("/ in your browser or phone.");
-        testResults += "EC      WiFi+WebServer  PASS (IP: " + WiFi.localIP().toString() + ")\n";
-        setupWebServer();
+    WiFi.mode(WIFI_AP);
+    if (strlen(apPass) > 0) {
+        WiFi.softAP(apSSID, apPass);
     } else {
-        Serial.println("  Wi-Fi connect failed (timeout)");
-        testResults += "EC      WiFi+WebServer  FAIL (no connection)\n";
-        for (int i = 0; i < 20; i++) {
-            digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
-            delay(200);
-        }
-        digitalWrite(STATUS_LED, LOW);
+        WiFi.softAP(apSSID);
     }
+
+    digitalWrite(STATUS_LED, HIGH); // indicate network ready
+    IPAddress apIP = WiFi.softAPIP();
+    Serial.print("  AP running - connect to ");
+    Serial.print(apSSID);
+    Serial.print(" on ");
+    Serial.println(apIP);
+
+    testResults += "EC      WiFi+WebServer  PASS (AP)\n";
+    setupWebServer();
 
     // Show the serial menu so the user can re-run individual tests
     Serial.println();

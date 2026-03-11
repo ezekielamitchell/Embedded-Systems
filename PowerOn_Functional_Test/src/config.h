@@ -47,6 +47,10 @@
 #define RMOTOR_CH 1
 #define LMOTOR_CH 2
 
-// Wi-Fi credentials
+// Wi-Fi credentials (station mode - not used when running as soft AP)
 #define WIFI_SSID "endr"
 #define WIFI_PASS "SeattleUniversity01$$"
+
+// Access point credentials (ESP32 hosts the network)
+#define AP_SSID "ezekielRobot"
+#define AP_PASS "password123"  // leave empty for open network

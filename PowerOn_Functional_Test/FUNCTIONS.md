@@ -6,32 +6,40 @@ Detailed documentation of every function, its parameters, internal logic, and si
 
 ## Table of Contents
 
-1. [config.h — Pin & PWM Constants](#configh--pin--pwm-constants)
-2. [web_control.h — Public Interface](#web_controlh--public-interface)
-3. [main.cpp — Core Firmware](#maincpp--core-firmware)
-   - [beep()](#beep)
-   - [blinkLamp()](#blinklamp)
-   - [motorsStop()](#motorsstop)
-   - [testHorn()](#testhorn)
-   - [testLEDs()](#testleds)
-   - [testLightSensor()](#testlightsensor)
-   - [testMotors()](#testmotors)
-   - [testLineSensor()](#testlinesensor)
-   - [testUltrasonic()](#testultrasonic)
-   - [runAllTests()](#runalltests)
-   - [printMenu()](#printmenu)
-   - [setup()](#setup)
-   - [loop()](#loop)
-4. [web_control.cpp — HTTP Server](#web_controlcpp--http-server)
-   - [handleRoot()](#handleroot)
-   - [handleHorn()](#handlehorn)
-   - [handleLedsOn()](#handleledson)
-   - [handleLedsOff()](#handleledsoff)
-   - [handleMotorFwd()](#handlemotorfwd)
-   - [handleMotorRev()](#handlemotorrev)
-   - [handleMotorStop()](#handlemotorstop)
-   - [setupWebServer()](#setupwebserver)
-   - [webServerLoop()](#webserverloop)
+- [Function Reference — PowerOn Functional Test](#function-reference--poweron-functional-test)
+  - [Table of Contents](#table-of-contents)
+  - [config.h — Pin \& PWM Constants](#configh--pin--pwm-constants)
+  - [web\_control.h — Public Interface](#web_controlh--public-interface)
+  - [main.cpp — Core Firmware](#maincpp--core-firmware)
+    - [`beep()`](#beep)
+    - [`blinkLamp()`](#blinklamp)
+    - [`motorsStop()`](#motorsstop)
+    - [`testHorn()`](#testhorn)
+    - [`testLEDs()`](#testleds)
+    - [`testLightSensor()`](#testlightsensor)
+    - [`testMotors()`](#testmotors)
+    - [`testLineSensor()`](#testlinesensor)
+    - [`testUltrasonic()`](#testultrasonic)
+    - [`runAllTests()`](#runalltests)
+    - [`printMenu()`](#printmenu)
+    - [`setup()`](#setup)
+      - [Initialization](#initialization)
+      - [Auto Test Run](#auto-test-run)
+      - [Wi-Fi (soft AP)](#wi-fi-soft-ap)
+      - [Menu Handoff](#menu-handoff)
+    - [`loop()`](#loop)
+  - [web\_control.cpp — HTTP Server](#web_controlcpp--http-server)
+    - [`handleRoot()`](#handleroot)
+    - [`handleHorn()`](#handlehorn)
+    - [`handleLedsOn()`](#handleledson)
+    - [`handleLedsOff()`](#handleledsoff)
+    - [`handleMotorFwd()`](#handlemotorfwd)
+    - [`handleMotorRev()`](#handlemotorrev)
+    - [`handleMotorStop()`](#handlemotorstop)
+    - [`setupWebServer()`](#setupwebserver)
+    - [`webServerLoop()`](#webserverloop)
+  - [Data Flow Summary](#data-flow-summary)
+  - [Author](#author)
 
 ---
 
@@ -66,8 +74,10 @@ This header defines every GPIO assignment and PWM parameter used across the proj
 | `HORN_CH` | 0 | LEDC channel assigned to the horn |
 | `RMOTOR_CH` | 1 | LEDC channel assigned to the right motor |
 | `LMOTOR_CH` | 2 | LEDC channel assigned to the left motor |
-| `WIFI_SSID` | `"endr"` | Target Wi-Fi network name |
-| `WIFI_PASS` | `"..."` | Target Wi-Fi password |
+| `WIFI_SSID` | `"endr"` | Target network name for station mode (unused when running soft AP) |
+| `WIFI_PASS` | `"..."` | Password for station mode |
+| `AP_SSID` | `"RobotTest"` | SSID broadcast by the ESP32 when acting as an access point |
+| `AP_PASS` | `"robot1234"` | Passphrase for the onboard access point (empty = open network) |
 
 ---
 
@@ -346,12 +356,15 @@ void setup()
 
 Calls `runAllTests()` — this clears `testResults` and executes all six tests plus the completion fanfare.
 
-#### Wi-Fi Connection
+#### Wi-Fi (soft AP)
 
-1. Starts `WiFi.mode(WIFI_STA)` and `WiFi.begin(WIFI_SSID, WIFI_PASS)`.
-2. Toggles `STATUS_LED` every 500 ms while waiting up to 20 seconds for a connection.
-3. **On success:** Turns `STATUS_LED` solid, prints the IP address, appends the IP to `testResults`, and calls `setupWebServer()`.
-4. **On timeout:** Rapidly blinks `STATUS_LED` 20 times and logs the failure to `testResults`.
+The ESP32 creates its own wireless network rather than joining an external router:
+
+1. Sets `WiFi.mode(WIFI_AP)` and calls `WiFi.softAP(AP_SSID, AP_PASS)` (or `softAP(AP_SSID)` when `AP_PASS` is empty).
+2. Drives `STATUS_LED` high to indicate the AP is running.
+3. Prints the access‑point SSID and IP (typically `192.168.4.1`), appends an "AP" entry to `testResults`, and calls `setupWebServer()`.
+
+There is no timeout, and the station credentials are not used in this mode.
 
 #### Menu Handoff
 

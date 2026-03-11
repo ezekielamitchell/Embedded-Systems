@@ -50,7 +50,7 @@ PowerOn_Functional_Test/
 | IR Line Sensor | 32 | Digital input |
 | Ultrasonic TRIG | 4 | HC-SR04 trigger output |
 | Ultrasonic ECHO | 27 | HC-SR04 echo input |
-| Status LED | 5 | Green LED — used during Wi-Fi connection phase |
+| Status LED | 5 | Green LED — lit when the Wi-Fi access point is running |
 
 ---
 
