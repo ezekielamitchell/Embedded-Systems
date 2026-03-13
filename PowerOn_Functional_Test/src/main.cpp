@@ -9,7 +9,7 @@
  *   3. Light Sensor  60 s ADC monitor
  *   4. Motors        left fwd/rev, right fwd/rev (1 s each)
  *   5. Line Sensor   transition detection (10 s window)
- *   6. Ultrasonic    5 distance readings
+ *   6. Ultrasonic    5 distance readings (HC-SR04 on TRIG=4 / ECHO=27)
  *   7. Completion    fanfare
  *
  * Autonomous Modes:
@@ -31,8 +31,11 @@
 // Test results string — displayed on the web page
 String testResults = "";
 
+// Last ultrasonic reading (cm); updated every 200 ms in loop()
+static long sonarCm = 0;
+
 // Unique robot ID
-int robotID = 3;
+int robotID = 13;
 
 // UDP
 #define UDP_PORT 4210
@@ -136,7 +139,6 @@ static void curveRight(int spd) {
 }
 
 // Horn
-
 void beep(int count, int onMs, int offMs) {
     for (int i = 0; i < count; i++) {
         ledcWrite(HORN_CH, HORN_DUTY);
@@ -522,6 +524,13 @@ void loop() {
 
     webServerLoop();
     handleSerial();
+
+    // Sonar: poll every 200 ms (maze-solve does its own reads, skip to avoid conflict)
+    static unsigned long lastSonarMs = 0;
+    if (robotMode != MODE_MAZE_SOLVE && millis() - lastSonarMs >= 200) {
+        sonarCm = readUltrasonic();
+        lastSonarMs = millis();
+    }
 
     switch (robotMode) {
 

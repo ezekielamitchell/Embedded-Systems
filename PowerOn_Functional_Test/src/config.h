@@ -27,7 +27,8 @@
 #define DAYNIGHT 33
 #define IR_RECEIVE 32
 
-// Ultrasonic (HC-SR04)
+// Ultrasonic (HC-SR04) — TRIG=4, ECHO=27
+// Wiring: VCC → 5 V, GND → GND, TRIG → GPIO 4, ECHO → GPIO 27
 #define TRIG 4
 #define ECHO 27
 
@@ -55,25 +56,25 @@
 #define AP_SSID "ezekielRobot"
 #define AP_PASS "password123"  // leave empty for open network
 
-// ── Autonomous mode tuning ────────────────────────────────────────────────
+// Autonomous mode tuning
 
 // Line sensor polarity: 0 = LOW over line, 1 = HIGH over line
 #define LINE_DETECT_LEVEL  0
 
 // Motor duty cycles (0-255)
-#define SPEED_SLOW   140
-#define SPEED_MED    180
-#define SPEED_FAST   220
-#define SPEED_TURN   155
+#define SPEED_SLOW 140
+#define SPEED_MED 180
+#define SPEED_FAST 220
+#define SPEED_TURN 155
 
 // Line following timing (ms)
-#define LF_STRAIGHT_MS    60
-#define LF_SEARCH_MS     220
+#define LF_STRAIGHT_MS 60
+#define LF_SEARCH_MS 220
 
 // Maze solver
-#define MAZE_SPEED        SPEED_FAST
-#define WALL_STOP_CM       18    // stop & turn when obstacle ≤ this
-#define TURN_90_MS        430    // time for ~90° pivot at SPEED_TURN
+#define MAZE_SPEED SPEED_FAST
+#define WALL_STOP_CM 18    // stop & turn when obstacle ≤ this
+#define TURN_90_MS 430    // time for ~90° pivot at SPEED_TURN
 
 // Web watchdog: stop motors if no /drive command within this window (ms)
-#define WEB_WATCHDOG_MS   600
+#define WEB_WATCHDOG_MS 600
