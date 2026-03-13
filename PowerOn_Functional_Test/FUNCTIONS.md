@@ -1,4 +1,4 @@
-# Function Reference — PowerOn Functional Test
+# Function Reference — Robot Firmware (Combined)
 
 Detailed documentation of every function, its parameters, internal logic, and side effects across all source files.
 
@@ -6,149 +6,122 @@ Detailed documentation of every function, its parameters, internal logic, and si
 
 ## Table of Contents
 
-- [Function Reference — PowerOn Functional Test](#function-reference--poweron-functional-test)
-  - [Table of Contents](#table-of-contents)
-  - [config.h — Pin \& PWM Constants](#configh--pin--pwm-constants)
-  - [web\_control.h — Public Interface](#web_controlh--public-interface)
-  - [main.cpp — Core Firmware](#maincpp--core-firmware)
-    - [`beep()`](#beep)
-    - [`blinkLamp()`](#blinklamp)
-    - [`motorsStop()`](#motorsstop)
-    - [`testHorn()`](#testhorn)
-    - [`testLEDs()`](#testleds)
-    - [`testLightSensor()`](#testlightsensor)
-    - [`testMotors()`](#testmotors)
-    - [`testLineSensor()`](#testlinesensor)
-    - [`testUltrasonic()`](#testultrasonic)
-    - [`runAllTests()`](#runalltests)
-    - [`printMenu()`](#printmenu)
-    - [`setup()`](#setup)
-      - [Initialization](#initialization)
-      - [Auto Test Run](#auto-test-run)
-      - [Wi-Fi (soft AP)](#wi-fi-soft-ap)
-      - [Menu Handoff](#menu-handoff)
-    - [`loop()`](#loop)
-  - [web\_control.cpp — HTTP Server](#web_controlcpp--http-server)
-    - [`handleRoot()`](#handleroot)
-    - [`handleHorn()`](#handlehorn)
-    - [`handleLedsOn()`](#handleledson)
-    - [`handleLedsOff()`](#handleledsoff)
-    - [`handleMotorFwd()`](#handlemotorfwd)
-    - [`handleMotorRev()`](#handlemotorrev)
-    - [`handleMotorStop()`](#handlemotorstop)
-    - [`setupWebServer()`](#setupwebserver)
-    - [`webServerLoop()`](#webserverloop)
-  - [Data Flow Summary](#data-flow-summary)
-  - [Author](#author)
+- [config.h — Pin, PWM & Tuning Constants](#configh--pin-pwm--tuning-constants)
+- [web\_control.h — Public Interface & Shared State](#web_controlh--public-interface--shared-state)
+- [main.cpp — Core Firmware](#maincpp--core-firmware)
+  - Motor Helpers: [`motorsStop`](#motorsstop) · [`driveForward`](#driveforward) · [`driveReverse`](#drivereverse) · [`pivotLeft`](#pivotleft) · [`pivotRight`](#pivotright) · [`curveLeft`](#curveleft) · [`curveRight`](#curveright)
+  - Sensor Helpers: [`onLine`](#online) · [`readUltrasonic`](#readultrasonic)
+  - Horn: [`beep`](#beep)
+  - Utility: [`blinkLamp`](#blinklamp)
+  - Functional Tests: [`testHorn`](#testhorn) · [`testLEDs`](#testleds) · [`testLightSensor`](#testlightsensor) · [`testMotors`](#testmotors) · [`testLineSensor`](#testlinesensor) · [`testUltrasonic`](#testultrasonic) · [`runAllTests`](#runalltests)
+  - Autonomous Modes: [`runLineFollow`](#runlinefollow) · [`runMazeSolve`](#runmazesolve)
+  - Serial Menu: [`printMenu`](#printmenu) · [`handleSerial`](#handleserial)
+  - Arduino Entry Points: [`setup`](#setup) · [`loop`](#loop)
+- [web\_control.cpp — HTTP Server](#web_controlcpp--http-server)
+  - [`handleRoot`](#handleroot) · [`handleSensors`](#handlesensors)
+  - [`handleDrive`](#handledrive) · [`handleMode`](#handlemode) · [`handleTest`](#handletest)
+  - [`handleHorn`](#handlehorn) · [`handleLedsOn`](#handleledson) · [`handleLedsOff`](#handleledsoff)
+  - [`setupWebServer`](#setupwebserver) · [`webServerLoop`](#webserverloop)
+- [Data Flow Summary](#data-flow-summary)
+- [Author](#author)
 
 ---
 
-## config.h — Pin & PWM Constants
+## config.h — Pin, PWM & Tuning Constants
 
-This header defines every GPIO assignment and PWM parameter used across the project. Nothing is runtime-configurable; all values are `#define` macros resolved at compile time.
+All values are `#define` macros resolved at compile time. Nothing is runtime-configurable from this file.
+
+### Pin Assignments
+
+| Macro | GPIO | Purpose |
+| --- | --- | --- |
+| `RMOTOR_1A` | 18 | Right motor direction A (L293D input 1) |
+| `RMOTOR_2A` | 19 | Right motor direction B (L293D input 2) |
+| `RPWM_1A2A` | 26 | Right motor PWM speed (L293D enable 1) |
+| `LMOTOR_3A` | 16 | Left motor direction A (L293D input 3) |
+| `LMOTOR_4A` | 17 | Left motor direction B (L293D input 4) |
+| `LPWM_3A4A` | 25 | Left motor PWM speed (L293D enable 3) |
+| `RENCODER_A/B` | 36, 39 | Right wheel quadrature encoder (input-only) |
+| `LENCODER_A/B` | 34, 35 | Left wheel quadrature encoder (input-only) |
+| `HORN` | 21 | Piezo buzzer output |
+| `FRONTLAMPS` | 2 | Front LED network (bootstrap pin, safe after boot) |
+| `REARLAMPS` | 0 | Rear LED network (bootstrap pin, safe after boot) |
+| `DAYNIGHT` | 33 | Photoresistor ADC input (ADC1_CH5, 12-bit) |
+| `IR_RECEIVE` | 32 | IR line sensor digital input |
+| `TRIG` | 4 | HC-SR04 ultrasonic trigger output |
+| `ECHO` | 27 | HC-SR04 ultrasonic echo input |
+| `STATUS_LED` | 5 | Status LED — solid when Wi-Fi connected |
+
+### PWM / LEDC Constants
 
 | Macro | Value | Purpose |
 | --- | --- | --- |
-| `RMOTOR_1A` | 18 | Right motor direction pin A (L293D input 1) |
-| `RMOTOR_2A` | 19 | Right motor direction pin B (L293D input 2) |
-| `RPWM_1A2A` | 26 | Right motor speed PWM (L293D enable 1) |
-| `LMOTOR_3A` | 16 | Left motor direction pin A (L293D input 3) |
-| `LMOTOR_4A` | 17 | Left motor direction pin B (L293D input 4) |
-| `LPWM_3A4A` | 25 | Left motor speed PWM (L293D enable 3) |
-| `RENCODER_A/B` | 36, 39 | Right wheel quadrature encoder (input-only GPIOs) |
-| `LENCODER_A/B` | 34, 35 | Left wheel quadrature encoder (input-only GPIOs) |
-| `HORN` | 21 | Piezo buzzer output |
-| `FRONTLAMPS` | 2 | Front LED network (ESP32 bootstrap pin) |
-| `REARLAMPS` | 0 | Rear LED network (ESP32 bootstrap pin) |
-| `DAYNIGHT` | 33 | Photoresistor ADC input (ADC1_CH5) |
-| `IR_RECEIVE` | 32 | IR/line sensor digital input |
-| `TRIG` | 4 | HC-SR04 ultrasonic trigger output |
-| `ECHO` | 27 | HC-SR04 ultrasonic echo input |
-| `STATUS_LED` | 5 | Green status LED |
-| `HORN_FREQ` | 1000 | Horn PWM frequency in Hz |
-| `HORN_RES` | 8 | Horn PWM resolution in bits (0–255 range) |
+| `HORN_CH` | 0 | LEDC channel for horn |
+| `RMOTOR_CH` | 1 | LEDC channel for right motor |
+| `LMOTOR_CH` | 2 | LEDC channel for left motor |
+| `HORN_FREQ` | 1000 | Horn frequency (Hz) |
+| `HORN_RES` | 8 | Horn PWM resolution (bits) |
 | `HORN_DUTY` | 128 | Horn duty cycle (~50%) |
-| `MOTOR_FREQ` | 5000 | Motor PWM frequency in Hz |
-| `MOTOR_RES` | 8 | Motor PWM resolution in bits |
-| `MOTOR_FULL_DUTY` | 255 | 100% motor duty cycle (8-bit max) |
-| `HORN_CH` | 0 | LEDC channel assigned to the horn |
-| `RMOTOR_CH` | 1 | LEDC channel assigned to the right motor |
-| `LMOTOR_CH` | 2 | LEDC channel assigned to the left motor |
-| `WIFI_SSID` | `"endr"` | Target network name for station mode (unused when running soft AP) |
-| `WIFI_PASS` | `"..."` | Password for station mode |
-| `AP_SSID` | `"RobotTest"` | SSID broadcast by the ESP32 when acting as an access point |
-| `AP_PASS` | `"robot1234"` | Passphrase for the onboard access point (empty = open network) |
+| `MOTOR_FREQ` | 5000 | Motor PWM frequency (Hz) |
+| `MOTOR_RES` | 8 | Motor PWM resolution (bits) |
+| `MOTOR_FULL_DUTY` | 255 | 100% duty cycle (8-bit max) |
+
+### Autonomous Mode Tuning
+
+| Macro | Value | Purpose |
+| --- | --- | --- |
+| `LINE_DETECT_LEVEL` | 0 | Sensor polarity: `0` = LOW over black line, `1` = HIGH over black line |
+| `SPEED_SLOW` | 140 | Motor duty for slow movement |
+| `SPEED_MED` | 180 | Motor duty for moderate movement |
+| `SPEED_FAST` | 220 | Motor duty for fast movement |
+| `SPEED_TURN` | 155 | Motor duty used during pivot turns |
+| `LF_STRAIGHT_MS` | 60 | Line follow: drive time (ms) while sensor is on the line |
+| `LF_SEARCH_MS` | 220 | Line follow: search turn time (ms) when sensor loses the line |
+| `MAZE_SPEED` | `SPEED_FAST` | Maze solver: forward drive speed |
+| `WALL_STOP_CM` | 18 | Maze solver: obstacle distance threshold (cm) |
+| `TURN_90_MS` | 430 | Maze solver: pivot duration (ms) for ~90° at `SPEED_TURN` |
+| `WEB_WATCHDOG_MS` | 600 | Driver mode: stop motors if no `/drive` command received in this window |
+
+### Wi-Fi Credentials
+
+| Macro | Value |
+| --- | --- |
+| `WIFI_SSID` | `"SU-ECE-LAB"` |
+| `WIFI_PASS` | `"FaraDay8086!"` |
+| `AP_SSID` | `"ezekielRobot"` |
+| `AP_PASS` | `"password123"` |
 
 ---
 
-## web_control.h — Public Interface
+## web_control.h — Public Interface & Shared State
 
-Declares the shared `testResults` string and the two public functions that `main.cpp` calls to start and run the web server.
+Declares the `RobotMode` enum and all shared variables that `main.cpp` and `web_control.cpp` exchange at runtime.
+
+### `RobotMode` enum
 
 ```cpp
-extern String testResults;
-void setupWebServer();
-void webServerLoop();
+enum RobotMode { MODE_IDLE, MODE_MANUAL, MODE_LINE_FOLLOW, MODE_MAZE_SOLVE };
 ```
 
-`testResults` is written by the individual test functions in `main.cpp` as each test finishes. The web server reads it back and injects it into the HTML dashboard so any browser that opens the page sees the current pass/fail summary. `runAllTests()` clears this string before a full run so the page always shows the most recent results.
+| Value | Meaning |
+| --- | --- |
+| `MODE_IDLE` | Motors stopped, no autonomous algorithm running |
+| `MODE_MANUAL` | Web/serial driver control; watchdog active |
+| `MODE_LINE_FOLLOW` | `runLineFollow()` called every `loop()` iteration |
+| `MODE_MAZE_SOLVE` | `runMazeSolve()` called every `loop()` iteration |
+
+### Shared `extern` variables
+
+| Variable | Type | Owner | Purpose |
+| --- | --- | --- | --- |
+| `robotMode` | `volatile RobotMode` | `web_control.cpp` | Current operating mode; read by `loop()`, written by web handlers and `handleSerial()` |
+| `webSpeed` | `volatile int` | `web_control.cpp` | Motor duty cycle set by the speed slider (0–255); read by `handleDrive()` |
+| `lastWebCmd` | `volatile unsigned long` | `web_control.cpp` | `millis()` timestamp of the most recent `/drive` request; used by the watchdog in `loop()` |
+| `testResults` | `String` | `main.cpp` | Accumulated pass/fail text; injected into the web page by `handleRoot()` |
 
 ---
 
 ## main.cpp — Core Firmware
-
-### `beep()`
-
-```cpp
-void beep(int count, int onMs, int offMs)
-```
-
-**What it does:** Drives the piezo horn (LEDC channel `HORN_CH`) to produce `count` tones.
-
-**How it works:**
-
-1. Iterates `count` times.
-2. Each iteration calls `ledcWrite(HORN_CH, HORN_DUTY)` to start a 1 kHz, 50%-duty PWM signal on the horn pin — this is the audible tone.
-3. Waits `onMs` milliseconds while the tone plays.
-4. Calls `ledcWrite(HORN_CH, 0)` to silence the horn (0% duty).
-5. If this is not the last beep, waits `offMs` milliseconds before the next tone.
-
-**Parameters:**
-
-| Parameter | Description |
-| --- | --- |
-| `count` | Number of beeps to produce |
-| `onMs` | Duration each beep is on (ms) |
-| `offMs` | Silence gap between beeps (ms); skipped after the last beep |
-
-**Used by:** `testHorn()`, `testLightSensor()`, `testLineSensor()`, `runAllTests()`, `handleHorn()` in `web_control.cpp`.
-
----
-
-### `blinkLamp()`
-
-```cpp
-void blinkLamp(int pin, int count, int onMs, int offMs)
-```
-
-**What it does:** Blinks a single digital GPIO pin (a lamp network) `count` times.
-
-**How it works:**
-
-1. Iterates `count` times.
-2. Each iteration writes `HIGH` to `pin`, waits `onMs` ms, then writes `LOW`.
-3. If not the last blink, waits `offMs` ms before the next cycle.
-
-**Parameters:**
-
-| Parameter | Description |
-| --- | --- |
-| `pin` | GPIO pin number connected to the LED network |
-| `count` | Number of blink cycles |
-| `onMs` | Time the LED stays on per cycle (ms) |
-| `offMs` | Time the LED stays off between cycles (ms); skipped on the last cycle |
-
-**Note:** This helper operates on a single pin only. The LED test (`testLEDs()`) does not use this function because it requires simultaneous control of two pins for the alternating sequence; that test drives `FRONTLAMPS` and `REARLAMPS` directly with `digitalWrite`.
 
 ---
 
@@ -158,18 +131,136 @@ void blinkLamp(int pin, int count, int onMs, int offMs)
 void motorsStop()
 ```
 
-**What it does:** Brings both motors to a hard stop immediately.
+Brings both motors to an immediate coast stop.
 
-**How it works:**
+1. Writes `0` to both `RMOTOR_CH` and `LMOTOR_CH` — removes all PWM drive.
+2. Sets all four direction pins (`RMOTOR_1A`, `RMOTOR_2A`, `LMOTOR_3A`, `LMOTOR_4A`) `LOW` — neutral state on the L293D H-bridge.
 
-1. Calls `ledcWrite(RMOTOR_CH, 0)` and `ledcWrite(LMOTOR_CH, 0)` — sets both motor PWM channels to 0% duty, removing all drive power.
-2. Sets all four direction pins (`RMOTOR_1A`, `RMOTOR_2A`, `LMOTOR_3A`, `LMOTOR_4A`) `LOW` — puts the L293D H-bridge inputs into a neutral/coast state.
+**Used by:** `setup()`, all test functions that run motors, `handleSerial()`, `handleDrive()`, `handleMode()`, `handleTest()`, `runMazeSolve()`.
 
-**Parameters:** None.
+---
 
-**Side effects:** Both wheels coast to a stop. The function does not apply active braking; it simply removes drive.
+### `driveForward()`
 
-**Used by:** `setup()` (safe initial state), `testMotors()`, `handleMotorFwd()`, `handleMotorRev()`, `handleMotorStop()` in `web_control.cpp`.
+```cpp
+void driveForward(int spd)
+```
+
+Drives both wheels forward at duty cycle `spd` (0–255).
+
+Sets `RMOTOR_1A` / `LMOTOR_3A` HIGH and `RMOTOR_2A` / `LMOTOR_4A` LOW on both channels, then writes `spd` to both PWM channels.
+
+---
+
+### `driveReverse()`
+
+```cpp
+void driveReverse(int spd)
+```
+
+Drives both wheels in reverse at duty cycle `spd`.
+
+Inverts the direction pins relative to `driveForward()`: `RMOTOR_1A` / `LMOTOR_3A` LOW, `RMOTOR_2A` / `LMOTOR_4A` HIGH.
+
+---
+
+### `pivotLeft()`
+
+```cpp
+void pivotLeft(int spd)
+```
+
+Spins the robot left in place. Right wheel drives forward, left wheel drives reverse, both at duty cycle `spd`. Results in a zero-radius left turn.
+
+---
+
+### `pivotRight()`
+
+```cpp
+void pivotRight(int spd)
+```
+
+Spins the robot right in place. Left wheel drives forward, right wheel drives reverse, both at duty cycle `spd`. Results in a zero-radius right turn.
+
+---
+
+### `curveLeft()`
+
+```cpp
+static void curveLeft(int spd)
+```
+
+Curves the robot to the left while moving forward. Both wheels drive forward; the left (inner) wheel runs at `spd / 2` and the right (outer) wheel at `spd`. The speed differential produces a gradual arc to the left.
+
+**Used by:** `runLineFollow()` when the sensor is off the line.
+
+---
+
+### `curveRight()`
+
+```cpp
+static void curveRight(int spd)
+```
+
+Curves the robot to the right while moving forward. Both wheels drive forward; the right (inner) wheel runs at `spd / 2` and the left (outer) wheel at `spd`.
+
+**Used by:** `runLineFollow()` when the sensor is on the line.
+
+---
+
+### `onLine()`
+
+```cpp
+static bool onLine()
+```
+
+Returns `true` if the IR line sensor currently detects the line.
+
+Reads `IR_RECEIVE` (GPIO 32) and compares to `LINE_DETECT_LEVEL`. If the sensor outputs `LOW` over a black line, set `LINE_DETECT_LEVEL 0`; if it outputs `HIGH`, set it to `1`.
+
+---
+
+### `readUltrasonic()`
+
+```cpp
+static long readUltrasonic()
+```
+
+Fires the HC-SR04 and returns the measured distance in centimetres. Returns `0` if no echo is received within the 25 ms timeout.
+
+1. Pulls `TRIG` LOW for 2 µs, HIGH for 10 µs, then LOW — the standard trigger sequence.
+2. Calls `pulseIn(ECHO, HIGH, 25000UL)` to measure the echo pulse duration in microseconds.
+3. Divides by 58 to convert to cm (speed of sound ≈ 340 m/s → 58 µs/cm round trip).
+
+**Used by:** `testUltrasonic()`, `runMazeSolve()`, `handleSensors()`.
+
+---
+
+### `beep()`
+
+```cpp
+void beep(int count, int onMs, int offMs)
+```
+
+Produces `count` audible tones on the piezo horn.
+
+Each iteration writes `HORN_DUTY` (128) to LEDC channel `HORN_CH` for `onMs` ms, then writes `0` to silence it. If not the last beep, waits `offMs` ms before the next tone.
+
+| Parameter | Description |
+| --- | --- |
+| `count` | Number of beeps |
+| `onMs` | Duration of each beep (ms) |
+| `offMs` | Gap between beeps (ms); skipped after the last beep |
+
+---
+
+### `blinkLamp()`
+
+```cpp
+static void blinkLamp(int pin, int count, int onMs, int offMs)
+```
+
+Blinks a single GPIO pin `count` times. Defined for single-pin blinking; the LED tests drive two pins simultaneously with direct `digitalWrite` calls instead of using this helper.
 
 ---
 
@@ -179,15 +270,7 @@ void motorsStop()
 void testHorn()
 ```
 
-**What it does:** Runs Test 1 — verifies the piezo horn produces audible output.
-
-**How it works:**
-
-1. Prints the test header to Serial.
-2. Calls `beep(5, 400, 300)` — five 400 ms tones with 300 ms gaps.
-3. Waits 500 ms, then appends `"TEST 1  Horn  PASS"` to `testResults` and prints `PASS` to Serial.
-
-The test always passes (no sensor feedback from the horn) — the tester verifies by listening.
+**Test 1.** Calls `beep(5, 400, 300)` — five 400 ms tones with 300 ms gaps. Always records PASS (audible verification by the tester).
 
 ---
 
@@ -197,19 +280,7 @@ The test always passes (no sensor feedback from the horn) — the tester verifie
 void testLEDs()
 ```
 
-**What it does:** Runs Test 2 — verifies both LED networks through a full alternating and combined pattern sequence.
-
-**How it works:**
-
-1. Prints the test header to Serial.
-2. Runs 3 alternating cycles:
-   - `FRONTLAMPS` HIGH / `REARLAMPS` LOW for 400 ms.
-   - `FRONTLAMPS` LOW / `REARLAMPS` HIGH for 400 ms.
-3. Drives both networks HIGH simultaneously for 500 ms (all on).
-4. Drives both networks LOW for 500 ms (all off).
-5. Appends `"TEST 2  LEDs  PASS"` to `testResults` and prints `PASS` to Serial.
-
-Both pins are controlled directly with `digitalWrite` rather than through `blinkLamp()` because the alternating pattern requires simultaneous two-pin state changes.
+**Test 2.** Runs three alternating front/rear cycles (400 ms each), then all-on for 500 ms, then all-off. Drives both pins directly with `digitalWrite`. Always records PASS.
 
 ---
 
@@ -219,20 +290,12 @@ Both pins are controlled directly with `digitalWrite` rather than through `blink
 void testLightSensor()
 ```
 
-**What it does:** Runs Test 3 — monitors the photoresistor for 60 seconds, streams ADC readings to the serial monitor, and drives the LEDs as a light/dark indicator.
+**Test 3.** Monitors the photoresistor on GPIO 33 for 10 seconds.
 
-**How it works:**
-
-1. Calls `beep(2, 600, 400)` — two slow beeps to alert the tester.
-2. Samples `DAYNIGHT` (GPIO 33) 10 times over ~1 second and averages them to establish a baseline ADC value. Prints the baseline to Serial.
-3. Enters a 60-second loop, sampling every 500 ms:
-   - Reads the current ADC value.
-   - If `abs(reading - baseline) > 200`, sets `dark = true` — drives both lamp networks HIGH.
-   - Otherwise drives both lamp networks LOW.
-   - Prints the raw ADC value and `[DARK]` or `[LIGHT]` to Serial.
-4. After 60 seconds, forces both lamps LOW, appends PASS to `testResults`, and prints `PASS` to Serial.
-
-The test always passes by timeout — the tester uses the serial output and LED response as the functional indicators. The 500 ms sample interval means approximately 120 readings are printed over the full window.
+1. Beeps twice, then samples 10 ADC readings to establish a baseline.
+2. Loops for 10 seconds, sampling every 500 ms.
+3. If `abs(reading - baseline) > 200`, activates both LED banks and prints `[DARK]`; otherwise prints `[LIGHT]`.
+4. Turns LEDs off and records PASS on timeout.
 
 ---
 
@@ -242,18 +305,7 @@ The test always passes by timeout — the tester uses the serial output and LED 
 void testMotors()
 ```
 
-**What it does:** Runs Test 4 — drives each motor independently through forward and reverse phases to verify both directions of rotation.
-
-**How it works:**
-
-Runs four sequential phases, each 1 second long with a 300 ms stop between them:
-
-1. **Left forward** — `LMOTOR_3A` HIGH, `LMOTOR_4A` LOW, full PWM on `LMOTOR_CH`.
-2. **Left reverse** — `LMOTOR_3A` LOW, `LMOTOR_4A` HIGH, full PWM on `LMOTOR_CH`.
-3. **Right forward** — `RMOTOR_1A` HIGH, `RMOTOR_2A` LOW, full PWM on `RMOTOR_CH`.
-4. **Right reverse** — `RMOTOR_1A` LOW, `RMOTOR_2A` HIGH, full PWM on `RMOTOR_CH`.
-
-After each phase, `motorsStop()` is called to zero both PWM channels and all direction pins before the next phase begins. A serial message prints the current phase name before each run. Appends PASS to `testResults` and prints `PASS` to Serial after all four phases complete.
+**Test 4.** Runs four 1-second phases — left forward, left reverse, right forward, right reverse — with `motorsStop()` and a 300 ms pause between each. Uses `MOTOR_FULL_DUTY` (255) for all phases.
 
 ---
 
@@ -263,17 +315,7 @@ After each phase, `motorsStop()` is called to zero both PWM channels and all dir
 void testLineSensor()
 ```
 
-**What it does:** Runs Test 5 — waits up to 10 seconds for the IR line sensor to change state.
-
-**How it works:**
-
-1. Calls `beep(2, 200, 200)` — two short beeps to alert the tester.
-2. Reads `IR_RECEIVE` (GPIO 32) and stores the value as the baseline state.
-3. Polls `IR_RECEIVE` every 50 ms for up to 10 seconds.
-4. If the pin value differs from the baseline at any point, sets `irChanged = true` and exits the loop immediately.
-5. Appends PASS or FAIL to `testResults` and prints the result to Serial.
-
-**Pass** requires the tester to place or remove an object from the IR sensor within the 10-second window. FAIL is recorded if no transition is detected before the timeout.
+**Test 5.** Beeps twice, captures the initial GPIO 32 state, then polls every 50 ms for up to 10 seconds. Records PASS on the first state change; records FAIL if none occurs before the timeout.
 
 ---
 
@@ -283,18 +325,7 @@ void testLineSensor()
 void testUltrasonic()
 ```
 
-**What it does:** Runs Test 6 — fires the HC-SR04 five times and prints measured distances to the serial monitor.
-
-**How it works:**
-
-1. Iterates 5 times.
-2. Each iteration:
-   - Pulses `TRIG` LOW for 2 µs, HIGH for 10 µs, then LOW again — the standard HC-SR04 trigger sequence.
-   - Calls `pulseIn(ECHO, HIGH, 30000UL)` to measure how long the ECHO pin stays HIGH (in microseconds), with a 30 ms timeout.
-   - Divides by 58 to convert to centimeters (speed of sound ≈ 340 m/s → 58 µs/cm round trip).
-   - Prints the reading or `"no echo"` to Serial.
-   - If any reading is > 0, sets `ultrasonicOK = true`.
-3. Appends PASS or FAIL to `testResults` based on whether at least one valid echo was received.
+**Test 6.** Calls `readUltrasonic()` five times, printing each distance (or `"no echo"`) to serial with a 200 ms gap between readings. Records PASS if at least one reading is > 0.
 
 ---
 
@@ -304,30 +335,85 @@ void testUltrasonic()
 void runAllTests()
 ```
 
-**What it does:** Clears `testResults` and runs all six subsystem tests in sequence, then plays the completion fanfare.
+Clears `testResults`, then calls Tests 1–6 in sequence. After all pass, calls `beep(15, 80, 60)` as the completion fanfare and appends Test 7 PASS.
 
-**How it works:**
+---
 
-1. Resets `testResults = ""` so the web page shows only the current run.
-2. Calls `testHorn()`, `testLEDs()`, `testLightSensor()`, `testMotors()`, `testLineSensor()`, `testUltrasonic()` in order.
-3. Calls `beep(15, 80, 60)` — 15 rapid beeps as an audible completion signal.
-4. Appends `"TEST 7  Completion  PASS"` to `testResults` and prints the completion banner to Serial.
+### `runLineFollow()`
 
-**Called by:** `setup()` on boot, and by `loop()` when the user sends `'A'` to the serial menu.
+```cpp
+static void runLineFollow()
+```
+
+**Autonomous line-follow step** — called once per `loop()` iteration while `robotMode == MODE_LINE_FOLLOW`.
+
+Implements a **single-sensor left-edge follower**:
+
+| Sensor state | Action | Delay |
+| --- | --- | --- |
+| `onLine()` is `true` | `curveRight(SPEED_SLOW)` — steers sensor toward edge | `LF_STRAIGHT_MS` |
+| `onLine()` is `false` | `curveLeft(SPEED_SLOW)` — steers back over the line | `LF_SEARCH_MS` |
+
+The robot tracks the left edge of the black line, producing a controlled zig-zag. Short delays keep `webServerLoop()` responsive between steps.
+
+**Starting position:** The IR sensor must start on or near the left edge of the tape. If started fully off the line, the robot will search left until the line is found.
+
+**Tuning:** Adjust `LF_STRAIGHT_MS`, `LF_SEARCH_MS`, and speed in `config.h`. If the robot avoids the line instead of following it, flip `LINE_DETECT_LEVEL`.
+
+---
+
+### `runMazeSolve()`
+
+```cpp
+static void runMazeSolve()
+```
+
+**Autonomous maze-solve step** — called once per `loop()` iteration while `robotMode == MODE_MAZE_SOLVE`.
+
+Implements a **right-hand-rule** using the front ultrasonic sensor.
+
+| Condition | Action |
+| --- | --- |
+| No obstacle (`dist > WALL_STOP_CM` or no echo) | `driveForward(MAZE_SPEED)` for 80 ms |
+| Obstacle within `WALL_STOP_CM` | Stop, then `pivotRight(SPEED_TURN)` for `TURN_90_MS` |
+| Obstacle on 9th consecutive turn (`mazeStuckCount > 8`) | `driveReverse(SPEED_MED)` for 500 ms, reset counter |
+
+`mazeStuckCount` is a file-scope `static int` that resets to `0` whenever a clear path is found or when `handleSerial()` starts the mode. Each blocked turn increments it; the reverse-and-reset recovery prevents infinite spinning in dead ends.
 
 ---
 
 ### `printMenu()`
 
 ```cpp
-void printMenu()
+static void printMenu()
 ```
 
-**What it does:** Prints the interactive test selection menu to the serial monitor.
+Prints the bordered serial menu to the monitor, listing all keys (`1`–`6`, `A`, `M`, `L`, `Z`, `S`), then prints `"Select: "` without a newline to leave the cursor at the prompt.
 
-**How it works:** Issues a sequence of `Serial.println()` calls that draw a bordered menu listing all available commands (`1`–`6`, `A`, `M`), then ends with `Serial.print("Enter selection: ")` (no newline) to leave the cursor at the prompt.
+**Called by:** `setup()` once after boot, and by `handleSerial()` after every command.
 
-**Called by:** `setup()` once after boot setup completes, and by `loop()` after every test or menu command finishes.
+---
+
+### `handleSerial()`
+
+```cpp
+static void handleSerial()
+```
+
+Reads one character from the serial buffer, flushes the rest, and dispatches the command.
+
+For test commands (`1`–`6`, `A`): sets `robotMode = MODE_IDLE` and calls `motorsStop()` first, then calls the appropriate test function.
+
+For mode commands:
+
+| Key | Action |
+| --- | --- |
+| `M` / `m` | `robotMode = MODE_MANUAL` |
+| `L` / `l` | `robotMode = MODE_LINE_FOLLOW`, beeps twice |
+| `Z` / `z` | `robotMode = MODE_MAZE_SOLVE`, resets `mazeStuckCount`, beeps three times |
+| `S` / `s` | `robotMode = MODE_IDLE` |
+
+Calls `printMenu()` after every command. Returns immediately if no serial data is available.
 
 ---
 
@@ -337,38 +423,25 @@ void printMenu()
 void setup()
 ```
 
-**What it does:** The Arduino entry point. Configures all hardware, runs all tests automatically via `runAllTests()`, starts the Wi-Fi web server, then calls `printMenu()` to hand off to the interactive serial menu.
+Arduino entry point. Configures all hardware and connects to Wi-Fi.
 
-**How it works — step by step:**
+**Hardware initialisation:**
 
-#### Initialization
+- Serial at 115200 baud.
+- All motor direction pins, lamp pins, TRIG, and `STATUS_LED` as `OUTPUT`. TRIG and STATUS_LED initialised `LOW`.
+- ECHO and `IR_RECEIVE` as `INPUT`; encoder pins as `INPUT_PULLUP`.
+- Three LEDC channels configured with `ledcSetup()` and attached with `ledcAttachPin()`.
+- All PWM channels zeroed; `motorsStop()` called; ADC resolution set to 12-bit.
+- 1-second settling delay.
 
-- Opens Serial at 115200 baud and prints a firmware banner.
-- Sets all motor direction pins, lamp pins, and the ultrasonic TRIG pin as `OUTPUT`, with TRIG held `LOW`.
-- Sets `STATUS_LED` as `OUTPUT` and pulls it `LOW`.
-- Sets ECHO, IR_RECEIVE, and all four encoder pins as inputs (`INPUT` or `INPUT_PULLUP`).
-- Calls `ledcSetup()` + `ledcAttachPin()` for three LEDC channels: horn (ch 0, 1 kHz, 8-bit), right motor (ch 1, 5 kHz, 8-bit), left motor (ch 2, 5 kHz, 8-bit).
-- Writes 0 to all PWM channels and calls `motorsStop()` to ensure a safe startup state.
-- Sets ADC resolution to 12 bits (0–4095).
-- Waits 1 second for power rails to stabilize.
+**Wi-Fi (station mode):**
 
-#### Auto Test Run
+Connects to `WIFI_SSID` with a 20-second timeout. `STATUS_LED` blinks at 0.5 Hz while connecting:
 
-Calls `runAllTests()` — this clears `testResults` and executes all six tests plus the completion fanfare.
+- **Success:** LED goes solid; IP printed to serial; `setupWebServer()` called.
+- **Failure:** LED blinks rapidly for ~4 s, then goes off; firmware continues without a web server.
 
-#### Wi-Fi (soft AP)
-
-The ESP32 creates its own wireless network rather than joining an external router:
-
-1. Sets `WiFi.mode(WIFI_AP)` and calls `WiFi.softAP(AP_SSID, AP_PASS)` (or `softAP(AP_SSID)` when `AP_PASS` is empty).
-2. Drives `STATUS_LED` high to indicate the AP is running.
-3. Prints the access‑point SSID and IP (typically `192.168.4.1`), appends an "AP" entry to `testResults`, and calls `setupWebServer()`.
-
-There is no timeout, and the station credentials are not used in this mode.
-
-#### Menu Handoff
-
-Calls `printMenu()` so the user sees the menu immediately after boot completes.
+Unlike the original firmware, tests are **not** run automatically on boot. The serial menu is presented immediately after Wi-Fi setup.
 
 ---
 
@@ -378,177 +451,121 @@ Calls `printMenu()` so the user sees the menu immediately after boot completes.
 void loop()
 ```
 
-**What it does:** Services the web server and the serial test menu on every iteration.
+Main execution loop. Runs three things on every iteration:
 
-**How it works:**
+1. `webServerLoop()` — services pending HTTP requests.
+2. `handleSerial()` — processes one serial character if available.
+3. Mode dispatch:
 
-1. Calls `webServerLoop()` to process any pending HTTP requests.
-2. Checks `Serial.available()`. If a character is waiting:
-   - Reads the character and flushes any remaining bytes on the line.
-   - Echoes the character and a blank line to Serial.
-   - Dispatches to the appropriate test function via a `switch` statement:
-
-| Input | Action |
+| `robotMode` | Action |
 | --- | --- |
-| `'1'` | `testHorn()` |
-| `'2'` | `testLEDs()` |
-| `'3'` | `testLightSensor()` |
-| `'4'` | `testMotors()` |
-| `'5'` | `testLineSensor()` |
-| `'6'` | `testUltrasonic()` |
-| `'A'` or `'a'` | `runAllTests()` |
-| anything else | (no action, falls through) |
-
-1. After the switch, calls `printMenu()` to redisplay the prompt.
-
-**Blocking behavior:** Test functions that have fixed-duration waits (e.g., `testLightSensor()` blocks for 60 s, `testLineSensor()` blocks for up to 10 s) prevent `webServerLoop()` from running during that period. No other web requests are processed while a blocking test is running.
+| `MODE_IDLE` | Nothing |
+| `MODE_MANUAL` | Watchdog: calls `motorsStop()` if `millis() - lastWebCmd > WEB_WATCHDOG_MS` |
+| `MODE_LINE_FOLLOW` | Calls `runLineFollow()` |
+| `MODE_MAZE_SOLVE` | Calls `runMazeSolve()` |
 
 ---
 
 ## web_control.cpp — HTTP Server
 
-All route handler functions are `static` — they are internal to this translation unit and cannot be called directly from `main.cpp`. The only externally visible symbols are `setupWebServer()` and `webServerLoop()`.
-
-A single `static WebServer server(80)` instance is created at file scope and shared by all functions in this file.
+All route handlers are `static` (internal to this translation unit). Shared state (`robotMode`, `webSpeed`, `lastWebCmd`) is defined here and declared `extern` in `web_control.h`. A single `static WebServer server(80)` instance is shared by all functions.
 
 ---
 
 ### `handleRoot()`
 
-```cpp
-static void handleRoot()
-```
-
 **Route:** `GET /`
 
-**What it does:** Serves the robot's web control panel as a complete HTML page.
+Builds and sends the complete HTML control page. The page is assembled from raw-string literals with `testResults` injected at the appropriate point. It contains five sections: Mode Selection, Driver Controls, Quick Controls, Tests, and Live Sensors. JavaScript on the page uses `fetch()` for all button actions (no page reload), and polls `/sensors` every 1.8 seconds.
 
-**How it works:**
+---
 
-1. Builds an HTML string using two raw-string literals (`R"rawliteral(...)"`), with a gap in the middle where `testResults` is injected.
-2. The page includes:
-   - Inline CSS for a dark-themed, mobile-friendly layout (max 480 px wide, dark background, blue accent buttons).
-   - An inline JavaScript `cmd(path)` function that issues a `fetch()` request to any path and displays the plain-text response in a `<p id="msg">` status area — no page reload required.
-   - A `<pre>` block containing the live `testResults` string (pass/fail table from the last test run).
-   - Six control buttons that call `cmd()` with the appropriate API paths.
-3. Calls `server.send(200, "text/html", html)` to transmit the page to the client.
+### `handleSensors()`
 
-**Side effects:** None on hardware. Reads `testResults` (defined in `main.cpp`).
+**Route:** `GET /sensors`
+
+Returns a plain-text sensor snapshot, called by the page's auto-poll every 1.8 s.
+
+1. Fires `TRIG` and measures the HC-SR04 echo.
+2. Reads `IR_RECEIVE` and `DAYNIGHT`.
+3. Sends a formatted multi-line string: current mode, IR value + on/off-line label, ADC value, and distance.
+
+---
+
+### `handleDrive()`
+
+**Route:** `GET /drive/{fwd|rev|left|right|stop}?spd=N`
+
+Only acts when `robotMode == MODE_MANUAL`; returns an error string otherwise.
+
+Parses the direction from the URI (`server.uri().substring(7)`) and the optional `spd` query parameter (defaults to `webSpeed` if absent, clamped to 0–255). Updates `webSpeed` and `lastWebCmd`, then calls the appropriate motor helper:
+
+| URI segment | Motor call |
+| --- | --- |
+| `fwd` | `driveForward(spd)` |
+| `rev` | `driveReverse(spd)` |
+| `left` | `pivotLeft(spd)` |
+| `right` | `pivotRight(spd)` |
+| `stop` | `motorsStop()` |
+
+The browser holds a direction button → JavaScript sends this request every 380 ms. The server-side watchdog (`WEB_WATCHDOG_MS = 600 ms`) stops the motors if the stream of requests stops.
+
+---
+
+### `handleMode()`
+
+**Route:** `GET /mode/{idle|manual|line|maze}`
+
+Calls `motorsStop()` first (safe transition regardless of current state), then sets `robotMode`:
+
+| URI segment | `robotMode` set to |
+| --- | --- |
+| `idle` | `MODE_IDLE` |
+| `manual` | `MODE_MANUAL` |
+| `line` | `MODE_LINE_FOLLOW` |
+| `maze` | `MODE_MAZE_SOLVE` |
+
+---
+
+### `handleTest()`
+
+**Route:** `GET /test/{1–6|all}`
+
+Forces `robotMode = MODE_IDLE` and calls `motorsStop()`, then dispatches to the appropriate test function. Blocks until the test completes before sending the HTTP response.
+
+| URI segment | Function called |
+| --- | --- |
+| `1` | `testHorn()` |
+| `2` | `testLEDs()` |
+| `3` | `testLightSensor()` |
+| `4` | `testMotors()` |
+| `5` | `testLineSensor()` |
+| `6` | `testUltrasonic()` |
+| `all` | `runAllTests()` |
 
 ---
 
 ### `handleHorn()`
 
-```cpp
-static void handleHorn()
-```
-
 **Route:** `GET /horn`
 
-**What it does:** Triggers three short horn beeps in response to a browser button press.
-
-**How it works:**
-
-1. Calls `beep(3, 150, 100)` — three 150 ms beeps with 100 ms gaps.
-2. Calls `server.send(200, "text/plain", "Beeped!")` to return a confirmation string displayed in the browser status area.
-
-**Blocking behavior:** Blocks for approximately 500 ms while the beeps play before the HTTP response is sent.
+Calls `beep(3, 150, 100)` then responds `"Beeped!"`. Blocks ~500 ms while beeping.
 
 ---
 
 ### `handleLedsOn()`
 
-```cpp
-static void handleLedsOn()
-```
-
 **Route:** `GET /leds/on`
 
-**What it does:** Turns both front and rear LED networks on.
-
-**How it works:**
-
-1. Writes `HIGH` to `FRONTLAMPS` (GPIO 2) and `REARLAMPS` (GPIO 0).
-2. Responds with `server.send(200, "text/plain", "LEDs ON")`.
-
-**Side effects:** Both lamp networks remain on until another request explicitly turns them off.
+Writes `HIGH` to `FRONTLAMPS` and `REARLAMPS`. Responds `"LEDs ON"`.
 
 ---
 
 ### `handleLedsOff()`
 
-```cpp
-static void handleLedsOff()
-```
-
 **Route:** `GET /leds/off`
 
-**What it does:** Turns both front and rear LED networks off.
-
-**How it works:**
-
-1. Writes `LOW` to `FRONTLAMPS` and `REARLAMPS`.
-2. Responds with `server.send(200, "text/plain", "LEDs OFF")`.
-
----
-
-### `handleMotorFwd()`
-
-```cpp
-static void handleMotorFwd()
-```
-
-**Route:** `GET /motor/fwd`
-
-**What it does:** Drives both motors forward at full speed for 1 second, then stops.
-
-**How it works:**
-
-1. Sets direction pins for forward motion on both channels:
-   - Left: `LMOTOR_3A` HIGH, `LMOTOR_4A` LOW
-   - Right: `RMOTOR_1A` HIGH, `RMOTOR_2A` LOW
-2. Calls `ledcWrite()` for both motor PWM channels with `MOTOR_FULL_DUTY` (255).
-3. `delay(1000)` — blocks for one second.
-4. Calls `motorsStop()` to cut all drive.
-5. Responds with `server.send(200, "text/plain", "Forward 1 s done")`.
-
-**Blocking behavior:** Blocks the HTTP server for ~1 second. No other web requests are processed during this time.
-
----
-
-### `handleMotorRev()`
-
-```cpp
-static void handleMotorRev()
-```
-
-**Route:** `GET /motor/rev`
-
-**What it does:** Drives both motors in reverse at full speed for 1 second, then stops.
-
-**How it works:** Identical to `handleMotorFwd()` except direction pins are inverted:
-
-- Left: `LMOTOR_3A` LOW, `LMOTOR_4A` HIGH
-- Right: `RMOTOR_1A` LOW, `RMOTOR_2A` HIGH
-
-This reverses the current through each H-bridge half, spinning the motors backward. After 1 second, `motorsStop()` is called and `"Reverse 1 s done"` is sent.
-
----
-
-### `handleMotorStop()`
-
-```cpp
-static void handleMotorStop()
-```
-
-**Route:** `GET /motor/stop`
-
-**What it does:** Immediately stops both motors.
-
-**How it works:**
-
-1. Calls `motorsStop()` — zeroes PWM and pulls all direction pins LOW.
-2. Responds with `server.send(200, "text/plain", "Motors stopped")`.
+Writes `LOW` to `FRONTLAMPS` and `REARLAMPS`. Responds `"LEDs OFF"`.
 
 ---
 
@@ -558,26 +575,26 @@ static void handleMotorStop()
 void setupWebServer()
 ```
 
-**What it does:** Registers all URL routes and starts the HTTP server on port 80.
-
-**How it works:**
-
-1. Calls `server.on(path, handler)` seven times to map each URL path to its static handler function:
+Registers all routes with `server.on()` and calls `server.begin()`. Called once from `setup()` if Wi-Fi connects.
 
 | Path | Handler |
 | --- | --- |
 | `/` | `handleRoot` |
+| `/sensors` | `handleSensors` |
+| `/drive/fwd` | `handleDrive` |
+| `/drive/rev` | `handleDrive` |
+| `/drive/left` | `handleDrive` |
+| `/drive/right` | `handleDrive` |
+| `/drive/stop` | `handleDrive` |
+| `/mode/idle` | `handleMode` |
+| `/mode/manual` | `handleMode` |
+| `/mode/line` | `handleMode` |
+| `/mode/maze` | `handleMode` |
+| `/test/1` – `/test/6` | `handleTest` |
+| `/test/all` | `handleTest` |
 | `/horn` | `handleHorn` |
 | `/leds/on` | `handleLedsOn` |
 | `/leds/off` | `handleLedsOff` |
-| `/motor/fwd` | `handleMotorFwd` |
-| `/motor/rev` | `handleMotorRev` |
-| `/motor/stop` | `handleMotorStop` |
-
-1. Calls `server.begin()` to start listening on TCP port 80.
-1. Prints a confirmation message to Serial.
-
-**Called by:** `setup()` in `main.cpp`, only if Wi-Fi connects successfully.
 
 ---
 
@@ -587,57 +604,45 @@ void setupWebServer()
 void webServerLoop()
 ```
 
-**What it does:** Processes any pending incoming HTTP requests. Must be called continuously to keep the server responsive.
-
-**How it works:** Calls `server.handleClient()` — the ESP32 WebServer library's polling function. This checks the TCP socket for new connections or data, dispatches requests to the registered route handlers, and sends responses. It returns quickly if there is nothing to process.
-
-**Called by:** `loop()` in `main.cpp` on every iteration.
-
-**Why it exists as a wrapper:** Keeping this call behind a named function in `web_control.cpp` means `main.cpp` does not need to `#include <WebServer.h>` directly; all web-server implementation details stay contained within the `web_control` translation unit.
+Calls `server.handleClient()` — the ESP32 WebServer library's polling function. Returns immediately if no request is pending. Must be called on every `loop()` iteration to keep the server responsive. Keeping this behind a named function means `main.cpp` does not need to `#include <WebServer.h>`.
 
 ---
 
 ## Data Flow Summary
 
 ```text
-setup() in main.cpp
-  │
-  ├── hardware init
-  │
-  ├── runAllTests()
-  │     ├── testHorn()          → appends to testResults
-  │     ├── testLEDs()          → appends to testResults
-  │     ├── testLightSensor()   → appends to testResults
-  │     ├── testMotors()        → appends to testResults
-  │     ├── testLineSensor()    → appends to testResults
-  │     ├── testUltrasonic()    → appends to testResults
-  │     └── completion beeps
-  │
-  ├── Wi-Fi connect
-  │     └── setupWebServer()  → registers routes, starts server on :80
-  │
+setup()
+  ├── hardware init (GPIO, LEDC, ADC)
+  ├── Wi-Fi STA connect → setupWebServer() if connected
   └── printMenu()
 
-loop() in main.cpp
+loop()  [runs continuously]
   ├── webServerLoop()
   │     └── server.handleClient()
-  │           ├── GET /           → handleRoot()       → injects testResults into HTML
-  │           ├── GET /horn       → handleHorn()       → calls beep() from main.cpp
-  │           ├── GET /leds/on    → handleLedsOn()
-  │           ├── GET /leds/off   → handleLedsOff()
-  │           ├── GET /motor/fwd  → handleMotorFwd()   → calls motorsStop()
-  │           ├── GET /motor/rev  → handleMotorRev()   → calls motorsStop()
-  │           └── GET /motor/stop → handleMotorStop()  → calls motorsStop()
+  │           ├── GET /              → handleRoot()       → injects testResults
+  │           ├── GET /sensors       → handleSensors()    → live sensor snapshot
+  │           ├── GET /drive/*       → handleDrive()      → motor helpers (MANUAL only)
+  │           ├── GET /mode/*        → handleMode()       → sets robotMode
+  │           ├── GET /test/*        → handleTest()       → calls test functions
+  │           ├── GET /horn          → handleHorn()       → beep()
+  │           ├── GET /leds/on       → handleLedsOn()
+  │           └── GET /leds/off      → handleLedsOff()
   │
-  └── Serial input dispatch
-        ├── '1' → testHorn()
-        ├── '2' → testLEDs()
-        ├── '3' → testLightSensor()
-        ├── '4' → testMotors()
-        ├── '5' → testLineSensor()
-        ├── '6' → testUltrasonic()
-        ├── 'A' → runAllTests()
-        └── printMenu()
+  ├── handleSerial()
+  │     ├── '1'–'6'  → testXxx()    → appends to testResults
+  │     ├── 'A'/'a'  → runAllTests() → appends to testResults
+  │     ├── 'M'/'m'  → MODE_MANUAL
+  │     ├── 'L'/'l'  → MODE_LINE_FOLLOW
+  │     ├── 'Z'/'z'  → MODE_MAZE_SOLVE
+  │     └── 'S'/'s'  → MODE_IDLE
+  │
+  └── mode dispatch
+        ├── MODE_IDLE         → nothing
+        ├── MODE_MANUAL       → watchdog → motorsStop() if stale
+        ├── MODE_LINE_FOLLOW  → runLineFollow()
+        │                          onLine() → curveRight / curveLeft
+        └── MODE_MAZE_SOLVE   → runMazeSolve()
+                                   readUltrasonic() → driveForward / pivotRight / driveReverse
 ```
 
 ---

@@ -2,134 +2,273 @@
 #include "config.h"
 #include <WebServer.h>
 
-// Hardware helper prototypes (defined in main.cpp)
+// ── Shared state definitions ───────────────────────────────────────────────
+volatile RobotMode      robotMode  = MODE_IDLE;
+volatile int            webSpeed   = MOTOR_FULL_DUTY;
+volatile unsigned long  lastWebCmd = 0;
+
+// ── Hardware helpers defined in main.cpp ──────────────────────────────────
 void beep(int count, int onMs, int offMs);
 void motorsStop();
+void driveForward(int spd);
+void driveReverse(int spd);
+void pivotLeft(int spd);
+void pivotRight(int spd);
 
-// Web server instance
+// Test functions defined in main.cpp
+void testHorn();
+void testLEDs();
+void testLightSensor();
+void testMotors();
+void testLineSensor();
+void testUltrasonic();
+void runAllTests();
+
 static WebServer server(80);
 
-// Route handlers
+// ── Root page (unified UI) ─────────────────────────────────────────────────
 static void handleRoot()
 {
     String html = R"rawliteral(
 <!DOCTYPE html>
 <html><head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Robot Control</title>
   <style>
-    body   { font-family:sans-serif; max-width:480px; margin:auto; padding:16px;
-             background:#111; color:#eee; }
-    h1     { text-align:center; color:#4cf; }
-    h2     { color:#aef; border-bottom:1px solid #444; padding-bottom:4px; }
-    button { width:100%; padding:14px; margin:6px 0; font-size:1rem;
-             border:none; border-radius:8px; cursor:pointer;
-             background:#4cf; color:#111; font-weight:bold; }
-    button:active { opacity:0.7; }
-    pre    { background:#222; padding:12px; border-radius:6px;
-             font-size:0.8rem; white-space:pre-wrap; }
-    #msg   { text-align:center; color:#fa4; min-height:1.2em; }
+    *      { box-sizing:border-box; }
+    body   { font-family:sans-serif; background:#111; color:#eee;
+             max-width:480px; margin:auto; padding:12px; }
+    h1     { text-align:center; color:#4cf; margin:4px 0 10px; }
+    h2     { color:#aef; border-bottom:1px solid #333; padding-bottom:3px;
+             margin:14px 0 6px; font-size:1rem; }
+    .row   { display:flex; gap:6px; margin:4px 0; }
+    button { flex:1; padding:13px 4px; font-size:0.9rem; border:none;
+             border-radius:8px; cursor:pointer; background:#4cf;
+             color:#111; font-weight:bold; user-select:none;
+             -webkit-user-select:none; }
+    button:active { opacity:0.65; }
+    .red   { background:#f55 !important; color:#fff !important; }
+    .grn   { background:#5d5 !important; color:#111 !important; }
+    .gray  { background:#555 !important; color:#eee !important; }
+    .amber { background:#fa4 !important; color:#111 !important; }
+    #status{ text-align:center; background:#222; border-radius:6px;
+             padding:7px; margin:6px 0; color:#fa4; font-weight:bold; }
+    pre    { background:#222; padding:10px; border-radius:6px;
+             font-size:0.75rem; white-space:pre-wrap; max-height:180px;
+             overflow-y:auto; margin:4px 0; }
+    label  { font-size:0.82rem; color:#aaa; display:block; margin-top:6px; }
+    input[type=range] { width:100%; }
   </style>
   <script>
-    function cmd(path) {
+    let driveTimer = null;
+
+    function cmd(path, cb) {
       fetch(path).then(r => r.text()).then(t => {
-        document.getElementById('msg').innerText = t;
+        document.getElementById('status').innerText = t;
+        if (cb) cb(t);
       });
     }
+
+    // Hold-to-drive: repeat request while button held
+    function startDrive(dir) {
+      const go = () => {
+        const spd = document.getElementById('spd').value;
+        cmd('/drive/' + dir + '?spd=' + spd);
+      };
+      go();
+      driveTimer = setInterval(go, 380);
+    }
+    function endDrive() {
+      clearInterval(driveTimer); driveTimer = null;
+      cmd('/drive/stop');
+    }
+    function bindDrive(id, dir) {
+      const b = document.getElementById(id);
+      ['mousedown','touchstart'].forEach(ev =>
+        b.addEventListener(ev, e => { e.preventDefault(); startDrive(dir); }, {passive:false}));
+      ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev =>
+        b.addEventListener(ev, endDrive));
+    }
+
+    function pollSensors() {
+      fetch('/sensors').then(r => r.text()).then(t =>
+        document.getElementById('sensorBox').innerText = t);
+    }
+
+    window.onload = () => {
+      bindDrive('bFwd','fwd'); bindDrive('bRev','rev');
+      bindDrive('bLeft','left'); bindDrive('bRight','right');
+      setInterval(pollSensors, 1800);
+      pollSensors();
+    };
   </script>
 </head><body>
-  <h1>&#129302; Ezekiel's Robot Control Panel</h1>
+  <h1>&#129302; Ezekiel's Robot</h1>
+  <div id="status">Ready</div>
 
-  <h2>Test Results</h2>
-  <pre>)rawliteral";
+  <h2>&#127922; Operating Mode</h2>
+  <div class="row">
+    <button class="gray" onclick="cmd('/mode/manual')">&#128073; Manual</button>
+    <button class="grn"  onclick="cmd('/mode/line')">&#128204; Line Follow</button>
+    <button class="grn"  onclick="cmd('/mode/maze')">&#127992; Maze Solve</button>
+    <button class="red"  onclick="cmd('/mode/idle')">&#9632; Stop</button>
+  </div>
 
-    html += testResults;
+  <h2>&#127918; Driver Controls</h2>
+  <div class="row"><button id="bFwd">&#9650; Forward</button></div>
+  <div class="row">
+    <button id="bLeft">&#9664; Left</button>
+    <button class="red" onclick="cmd('/drive/stop')">&#9632; Stop</button>
+    <button id="bRight">&#9654; Right</button>
+  </div>
+  <div class="row"><button id="bRev">&#9660; Reverse</button></div>
+  <label>Speed: <span id="spdVal">255</span>
+    <input id="spd" type="range" min="80" max="255" value="255"
+           oninput="document.getElementById('spdVal').innerText=this.value">
+  </label>
+
+  <h2>&#128295; Quick Controls</h2>
+  <div class="row">
+    <button onclick="cmd('/horn')">&#128266; Horn</button>
+    <button onclick="cmd('/leds/on')">&#128161; LEDs On</button>
+    <button onclick="cmd('/leds/off')">&#127761; LEDs Off</button>
+  </div>
+
+  <h2>&#9989; Functional Tests</h2>
+  <div class="row">
+    <button class="amber" onclick="cmd('/test/1')">1 Horn</button>
+    <button class="amber" onclick="cmd('/test/2')">2 LEDs</button>
+    <button class="amber" onclick="cmd('/test/3')">3 Light</button>
+    <button class="amber" onclick="cmd('/test/4')">4 Motors</button>
+  </div>
+  <div class="row">
+    <button class="amber" onclick="cmd('/test/5')">5 Line</button>
+    <button class="amber" onclick="cmd('/test/6')">6 Ultrasonic</button>
+    <button class="gray"  onclick="cmd('/test/all')">&#9654;&#9654; Run All Tests</button>
+  </div>
+
+  <h2>&#128203; Test Results</h2>
+  <pre id="results">)rawliteral";
+
+    html += testResults.length() ? testResults : "(no tests run yet)";
 
     html += R"rawliteral(</pre>
 
-  <h2>Controls</h2>
-  <button onclick="cmd('/horn')">&#128266; Beep Horn</button>
-  <button onclick="cmd('/leds/on')">&#128161; LEDs ON</button>
-  <button onclick="cmd('/leds/off')">&#127761; LEDs OFF</button>
-  <button onclick="cmd('/motor/fwd')">&#9650; Motors Forward (1 s)</button>
-  <button onclick="cmd('/motor/rev')">&#9660; Motors Reverse (1 s)</button>
-  <button onclick="cmd('/motor/stop')">&#9632; Motors Stop</button>
+  <h2>&#128268; Live Sensors</h2>
+  <pre id="sensorBox">Loading...</pre>
 
-  <p id="msg"></p>
 </body></html>)rawliteral";
 
     server.send(200, "text/html", html);
 }
 
-static void handleHorn()
+// ── Drive endpoint ─────────────────────────────────────────────────────────
+static void handleDrive()
 {
-    beep(3, 150, 100);
-    server.send(200, "text/plain", "Beeped!");
+    if (robotMode != MODE_MANUAL) {
+        server.send(200, "text/plain", "Switch to Manual mode first");
+        return;
+    }
+    int spd = server.hasArg("spd") ? constrain(server.arg("spd").toInt(), 0, 255)
+                                   : webSpeed;
+    webSpeed   = spd;
+    lastWebCmd = millis();
+
+    String d = server.uri().substring(7); // after "/drive/"
+    if      (d == "fwd")   driveForward(spd);
+    else if (d == "rev")   driveReverse(spd);
+    else if (d == "left")  pivotLeft(spd);
+    else if (d == "right") pivotRight(spd);
+    else                   motorsStop();
+
+    server.send(200, "text/plain", "Drive: " + d);
 }
 
-static void handleLedsOn()
-{
-    digitalWrite(FRONTLAMPS, HIGH);
-    digitalWrite(REARLAMPS, HIGH);
-    server.send(200, "text/plain", "LEDs ON");
-}
-
-static void handleLedsOff()
-{
-    digitalWrite(FRONTLAMPS, LOW);
-    digitalWrite(REARLAMPS, LOW);
-    server.send(200, "text/plain", "LEDs OFF");
-}
-
-static void dance() {
-  digitalWrite(FRONTLAMPS, HIGH);
-  sleep(1);
-  digitalWrite(REARLAMPS, HIGH);
-  sleep(1);
-  digitalWrite(REARLAMPS, LOW);
-  sleep(1);
-  digitalWrite(FRONTLAMPS, LOW);
-}
-
-static void handleMotorFwd()
-{
-    digitalWrite(LMOTOR_3A, HIGH); digitalWrite(LMOTOR_4A, LOW);
-    digitalWrite(RMOTOR_1A, HIGH); digitalWrite(RMOTOR_2A, LOW);
-    ledcWrite(LMOTOR_CH, MOTOR_FULL_DUTY);
-    ledcWrite(RMOTOR_CH, MOTOR_FULL_DUTY);
-    delay(1000);
-    motorsStop();
-    server.send(200, "text/plain", "Forward 1 s done");
-}
-
-static void handleMotorRev()
-{
-    digitalWrite(LMOTOR_3A, LOW); digitalWrite(LMOTOR_4A, HIGH);
-    digitalWrite(RMOTOR_1A, LOW); digitalWrite(RMOTOR_2A, HIGH);
-    ledcWrite(LMOTOR_CH, MOTOR_FULL_DUTY);
-    ledcWrite(RMOTOR_CH, MOTOR_FULL_DUTY);
-    delay(1000);
-    motorsStop();
-    server.send(200, "text/plain", "Reverse 1 s done");
-}
-
-static void handleMotorStop()
+// ── Mode endpoint ──────────────────────────────────────────────────────────
+static void handleMode()
 {
     motorsStop();
-    server.send(200, "text/plain", "Motors stopped");
+    String m = server.uri().substring(6); // after "/mode/"
+    if      (m == "manual") { robotMode = MODE_MANUAL;      server.send(200, "text/plain", "Manual (driver) mode"); }
+    else if (m == "line")   { robotMode = MODE_LINE_FOLLOW;  server.send(200, "text/plain", "Line-follow autonomous started"); }
+    else if (m == "maze")   { robotMode = MODE_MAZE_SOLVE;   server.send(200, "text/plain", "Maze-solve autonomous started"); }
+    else                    { robotMode = MODE_IDLE;          server.send(200, "text/plain", "Idle / stopped"); }
 }
 
-// Public API
+// ── Test endpoints ─────────────────────────────────────────────────────────
+static void handleTest()
+{
+    robotMode = MODE_IDLE;
+    motorsStop();
+    String t = server.uri().substring(6); // after "/test/"
+
+    if      (t == "1")   { testHorn();         server.send(200, "text/plain", "TEST 1 Horn done"); }
+    else if (t == "2")   { testLEDs();          server.send(200, "text/plain", "TEST 2 LEDs done"); }
+    else if (t == "3")   { testLightSensor();   server.send(200, "text/plain", "TEST 3 Light Sensor done"); }
+    else if (t == "4")   { testMotors();        server.send(200, "text/plain", "TEST 4 Motors done"); }
+    else if (t == "5")   { testLineSensor();    server.send(200, "text/plain", "TEST 5 Line Sensor done"); }
+    else if (t == "6")   { testUltrasonic();    server.send(200, "text/plain", "TEST 6 Ultrasonic done"); }
+    else if (t == "all") { runAllTests();       server.send(200, "text/plain", "All tests complete — reload to see results"); }
+    else                   server.send(400, "text/plain", "Unknown test");
+}
+
+// ── Quick controls ─────────────────────────────────────────────────────────
+static void handleHorn()    { beep(3, 150, 100); server.send(200, "text/plain", "Beeped!"); }
+static void handleLedsOn()  { digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, HIGH); server.send(200, "text/plain", "LEDs ON"); }
+static void handleLedsOff() { digitalWrite(FRONTLAMPS, LOW);  digitalWrite(REARLAMPS, LOW);  server.send(200, "text/plain", "LEDs OFF"); }
+
+// ── Sensor snapshot ────────────────────────────────────────────────────────
+static void handleSensors()
+{
+    digitalWrite(TRIG, LOW);  delayMicroseconds(2);
+    digitalWrite(TRIG, HIGH); delayMicroseconds(10);
+    digitalWrite(TRIG, LOW);
+    long dist = pulseIn(ECHO, HIGH, 25000UL) / 58L;
+
+    int ir    = digitalRead(IR_RECEIVE);
+    int light = analogRead(DAYNIGHT);
+
+    const char* modeStr[] = {"IDLE", "MANUAL", "LINE_FOLLOW", "MAZE_SOLVE"};
+    String out  = "Mode       : "; out += modeStr[(int)robotMode]; out += "\n";
+    out += "IR sensor  : "; out += ir;
+    out += (ir == LINE_DETECT_LEVEL ? "  [ON LINE]\n" : "  [off line]\n");
+    out += "Light(ADC) : "; out += light; out += "\n";
+    out += "Ultrasonic : ";
+    out += (dist > 0 ? String(dist) + " cm" : "no echo"); out += "\n";
+
+    server.send(200, "text/plain", out);
+}
+
+// ── Route registration ─────────────────────────────────────────────────────
 void setupWebServer()
 {
-    server.on("/", handleRoot);
-    server.on("/horn", handleHorn);
-    server.on("/leds/on", handleLedsOn);
-    server.on("/leds/off", handleLedsOff);
-    server.on("/motor/fwd", handleMotorFwd);
-    server.on("/motor/rev", handleMotorRev);
-    server.on("/motor/stop", handleMotorStop);
+    server.on("/",              handleRoot);
+    server.on("/sensors",       handleSensors);
+
+    server.on("/horn",          handleHorn);
+    server.on("/leds/on",       handleLedsOn);
+    server.on("/leds/off",      handleLedsOff);
+
+    server.on("/drive/fwd",     handleDrive);
+    server.on("/drive/rev",     handleDrive);
+    server.on("/drive/left",    handleDrive);
+    server.on("/drive/right",   handleDrive);
+    server.on("/drive/stop",    handleDrive);
+
+    server.on("/mode/idle",     handleMode);
+    server.on("/mode/manual",   handleMode);
+    server.on("/mode/line",     handleMode);
+    server.on("/mode/maze",     handleMode);
+
+    server.on("/test/1",        handleTest);
+    server.on("/test/2",        handleTest);
+    server.on("/test/3",        handleTest);
+    server.on("/test/4",        handleTest);
+    server.on("/test/5",        handleTest);
+    server.on("/test/6",        handleTest);
+    server.on("/test/all",      handleTest);
+
     server.begin();
     Serial.println("Web server started — open the IP above in a browser or phone.");
 }
