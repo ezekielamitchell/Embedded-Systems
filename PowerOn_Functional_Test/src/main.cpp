@@ -127,14 +127,14 @@ static void curveLeft(int spd) {
     digitalWrite(LMOTOR_3A, HIGH); 
     digitalWrite(LMOTOR_4A, LOW);
     ledcWrite(RMOTOR_CH, spd);
-    ledcWrite(LMOTOR_CH, spd / 2);
+    ledcWrite(LMOTOR_CH, spd / 4);
 }
 static void curveRight(int spd) {
     digitalWrite(RMOTOR_1A, HIGH); 
     digitalWrite(RMOTOR_2A, LOW);
     digitalWrite(LMOTOR_3A, HIGH); 
     digitalWrite(LMOTOR_4A, LOW);
-    ledcWrite(RMOTOR_CH, spd / 2);
+    ledcWrite(RMOTOR_CH, spd / 4);
     ledcWrite(LMOTOR_CH, spd);
 }
 
@@ -323,18 +323,50 @@ void runAllTests() {
 
 // Autonomous: Line Follow
 /*
- * Left-edge follower with one IR sensor.
- *   On line  → curve right (moves sensor toward the edge)
- *   Off line → curve left  (steers back over the line)
- * Short delays keep the web server responsive between steps.
+ * Single IR sensor (GPIO 32) positioned at the LEFT edge of black tape.
+ * LINE_DETECT_LEVEL 0 → sensor outputs LOW when over black (tape).
+ *
+ * Bang-bang edge follower — three states:
+ *   ON  LINE → steer right  (keep sensor at tape edge)
+ *   OFF LINE → steer left   (recover back onto tape)
+ *   LOST     → slow pivot left to sweep and re-acquire
+ *
+ * lfRight / lfLeft stop the inner wheel entirely for sharp, fast corrections.
  */
+static void lfRight(int spd) {
+    // Left wheel drives, right wheel stops → sharp right curve
+    digitalWrite(RMOTOR_1A, LOW);  digitalWrite(RMOTOR_2A, LOW);
+    digitalWrite(LMOTOR_3A, HIGH); digitalWrite(LMOTOR_4A, LOW);
+    ledcWrite(RMOTOR_CH, 0);
+    ledcWrite(LMOTOR_CH, spd);
+}
+
+static void lfLeft(int spd) {
+    // Right wheel drives, left wheel stops → sharp left curve
+    digitalWrite(RMOTOR_1A, HIGH); digitalWrite(RMOTOR_2A, LOW);
+    digitalWrite(LMOTOR_3A, LOW);  digitalWrite(LMOTOR_4A, LOW);
+    ledcWrite(RMOTOR_CH, spd);
+    ledcWrite(LMOTOR_CH, 0);
+}
+
 static void runLineFollow() {
-    if (onLine()) {
-        curveRight(SPEED_SLOW);
-        delay(LF_STRAIGHT_MS);
+    static unsigned long lastOnLineMs = 0;
+    unsigned long now = millis();
+    bool line = onLine();
+
+    if (line) {
+        // Sensor sees black tape — steer right to track left edge
+        lastOnLineMs = now;
+        lfRight(LF_SPEED);
     } else {
-        curveLeft(SPEED_SLOW);
-        delay(LF_SEARCH_MS);
+        unsigned long lostMs = now - lastOnLineMs;
+        if (lostMs < LF_RECOVER_MS) {
+            // Recently lost — steer left to recover
+            lfLeft(LF_SPEED);
+        } else {
+            // Tape completely lost — pivot slowly to sweep and re-acquire
+            pivotLeft(SPEED_SLOW);
+        }
     }
 }
 

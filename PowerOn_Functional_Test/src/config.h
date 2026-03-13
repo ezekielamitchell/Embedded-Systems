@@ -67,9 +67,9 @@
 #define SPEED_FAST 220
 #define SPEED_TURN 155
 
-// Line following timing (ms)
-#define LF_STRAIGHT_MS 60
-#define LF_SEARCH_MS 220
+// Line following
+#define LF_SPEED       150    // drive speed during line follow (0-255)
+#define LF_RECOVER_MS  300    // ms after losing line before switching to search pivot
 
 // Maze solver
 #define MAZE_SPEED SPEED_FAST
