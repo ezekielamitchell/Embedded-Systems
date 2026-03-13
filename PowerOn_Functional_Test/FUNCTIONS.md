@@ -9,6 +9,7 @@ Detailed documentation of every function, its parameters, internal logic, and si
 - [config.h — Pin, PWM & Tuning Constants](#configh--pin-pwm--tuning-constants)
 - [web\_control.h — Public Interface & Shared State](#web_controlh--public-interface--shared-state)
 - [main.cpp — Core Firmware](#maincpp--core-firmware)
+  - UDP: [`dance`](#dance) · [`handleCommand`](#handlecommand)
   - Motor Helpers: [`motorsStop`](#motorsstop) · [`driveForward`](#driveforward) · [`driveReverse`](#drivereverse) · [`pivotLeft`](#pivotleft) · [`pivotRight`](#pivotright) · [`curveLeft`](#curveleft) · [`curveRight`](#curveright)
   - Sensor Helpers: [`onLine`](#online) · [`readUltrasonic`](#readultrasonic)
   - Horn: [`beep`](#beep)
@@ -122,6 +123,57 @@ enum RobotMode { MODE_IDLE, MODE_MANUAL, MODE_LINE_FOLLOW, MODE_MAZE_SOLVE };
 ---
 
 ## main.cpp — Core Firmware
+
+---
+
+### UDP Globals
+
+| Symbol | Type | Value | Purpose |
+| --- | --- | --- | --- |
+| `robotID` | `int` | `3` | Unique robot identifier; checked against the numeric suffix in `DANCE_<id>` commands |
+| `UDP_PORT` | `#define` | `4210` | UDP port number the robot listens on for instructor broadcast commands |
+| `udp` | `WiFiUDP` | — | Arduino UDP socket object; opened with `udp.begin(UDP_PORT)` in `setup()` |
+| `incomingPacket` | `char[255]` | — | Receive buffer for incoming UDP datagrams; null-terminated after each read |
+
+---
+
+### `dance()`
+
+```cpp
+void dance()
+```
+
+Performs a visual + audible dance routine triggered by a UDP broadcast command.
+
+Runs 6 cycles (×400 ms each = ~2.4 s total):
+
+1. `FRONTLAMPS` HIGH, `REARLAMPS` LOW, horn on (`HORN_CH` at `HORN_DUTY`) for 200 ms.
+2. `FRONTLAMPS` LOW, `REARLAMPS` HIGH, horn off for 200 ms.
+
+After the loop, `REARLAMPS` is driven `LOW` to leave both LED banks off.
+
+Prints `"Robot Dancing!"` to serial at the start.
+
+**Called by:** `handleCommand()`.
+
+---
+
+### `handleCommand()`
+
+```cpp
+void handleCommand(String cmd)
+```
+
+Parses a UDP command string and dispatches the appropriate action.
+
+| Command | Condition | Action |
+| --- | --- | --- |
+| `"DANCE_ALL"` | Always | Calls `dance()` |
+| `"DANCE_<N>"` | `N == robotID` | Calls `dance()`; ignored if `N` does not match |
+
+Both checks are independent `if` statements, so `"DANCE_ALL"` triggers dance once regardless of `robotID`.
+
+**Called by:** `loop()` when a UDP packet is received.
 
 ---
 
@@ -438,8 +490,8 @@ Arduino entry point. Configures all hardware and connects to Wi-Fi.
 
 Connects to `WIFI_SSID` with a 20-second timeout. `STATUS_LED` blinks at 0.5 Hz while connecting:
 
-- **Success:** LED goes solid; IP printed to serial; `setupWebServer()` called.
-- **Failure:** LED blinks rapidly for ~4 s, then goes off; firmware continues without a web server.
+- **Success:** LED goes solid; IP printed to serial; `setupWebServer()` called; `udp.begin(UDP_PORT)` opens the UDP socket on port 4210.
+- **Failure:** LED blinks rapidly for ~4 s, then goes off; firmware continues without a web server or UDP listener.
 
 Unlike the original firmware, tests are **not** run automatically on boot. The serial menu is presented immediately after Wi-Fi setup.
 
@@ -451,11 +503,12 @@ Unlike the original firmware, tests are **not** run automatically on boot. The s
 void loop()
 ```
 
-Main execution loop. Runs three things on every iteration:
+Main execution loop. Runs four things on every iteration:
 
-1. `webServerLoop()` — services pending HTTP requests.
-2. `handleSerial()` — processes one serial character if available.
-3. Mode dispatch:
+1. **UDP poll** — calls `udp.parsePacket()`; if a datagram has arrived, reads it into `incomingPacket`, null-terminates it, and passes it to `handleCommand()`.
+2. `webServerLoop()` — services pending HTTP requests.
+3. `handleSerial()` — processes one serial character if available.
+4. Mode dispatch:
 
 | `robotMode` | Action |
 | --- | --- |
@@ -617,6 +670,11 @@ setup()
   └── printMenu()
 
 loop()  [runs continuously]
+  ├── udp.parsePacket()  [non-blocking]
+  │     └── handleCommand()
+  │           ├── "DANCE_ALL"     → dance()
+  │           └── "DANCE_<id>"   → dance() if id == robotID
+  │
   ├── webServerLoop()
   │     └── server.handleClient()
   │           ├── GET /              → handleRoot()       → injects testResults

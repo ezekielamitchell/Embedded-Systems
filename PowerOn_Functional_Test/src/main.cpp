@@ -24,11 +24,49 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiUdp.h>
 #include "config.h"
 #include "web_control.h"
 
 // Test results string — displayed on the web page
 String testResults = "";
+
+// Unique robot ID
+int robotID = 3;
+
+// UDP
+#define UDP_PORT 4210
+WiFiUDP udp;
+char incomingPacket[255];
+
+// Dance routine — triggered by UDP command
+void dance() {
+    Serial.println("Robot Dancing!");
+    for (int i = 0; i < 6; i++) {
+        digitalWrite(FRONTLAMPS, HIGH);
+        digitalWrite(REARLAMPS,  LOW);
+        ledcWrite(HORN_CH, HORN_DUTY);
+        delay(200);
+        digitalWrite(FRONTLAMPS, LOW);
+        digitalWrite(REARLAMPS,  HIGH);
+        ledcWrite(HORN_CH, 0);
+        delay(200);
+    }
+    digitalWrite(REARLAMPS, LOW);
+}
+
+// Handle incoming UDP command string
+void handleCommand(String cmd) {
+    if (cmd == "DANCE_ALL") {
+        dance();
+    }
+    if (cmd.startsWith("DANCE_")) {
+        int target = cmd.substring(6).toInt();
+        if (target == robotID) {
+            dance();
+        }
+    }
+}
 
 // Motor helpers
 
@@ -455,6 +493,9 @@ void setup() {
         Serial.println("/ in your browser or phone.");
         testResults += "EC      WiFi+WebServer  PASS (IP: " + WiFi.localIP().toString() + ")\n";
         setupWebServer();
+        udp.begin(UDP_PORT);
+        Serial.print("  UDP listening on port ");
+        Serial.println(UDP_PORT);
     } else {
         Serial.println("  Wi-Fi failed — continuing offline.");
         testResults += "EC      WiFi+WebServer  FAIL (timeout)\n";
@@ -471,6 +512,14 @@ void setup() {
 // loop
 
 void loop() {
+    // UDP command listener
+    int packetSize = udp.parsePacket();
+    if (packetSize) {
+        int len = udp.read(incomingPacket, 255);
+        if (len > 0) incomingPacket[len] = 0;
+        handleCommand(String(incomingPacket));
+    }
+
     webServerLoop();
     handleSerial();
 

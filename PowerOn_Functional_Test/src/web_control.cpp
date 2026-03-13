@@ -2,12 +2,12 @@
 #include "config.h"
 #include <WebServer.h>
 
-// ── Shared state definitions ───────────────────────────────────────────────
+// Shared state definitions
 volatile RobotMode      robotMode  = MODE_IDLE;
 volatile int            webSpeed   = MOTOR_FULL_DUTY;
 volatile unsigned long  lastWebCmd = 0;
 
-// ── Hardware helpers defined in main.cpp ──────────────────────────────────
+// Hardware helpers defined in main.cpp
 void beep(int count, int onMs, int offMs);
 void motorsStop();
 void driveForward(int spd);
@@ -26,7 +26,7 @@ void runAllTests();
 
 static WebServer server(80);
 
-// ── Root page (unified UI) ─────────────────────────────────────────────────
+// Root page (unified UI)
 static void handleRoot()
 {
     String html = R"rawliteral(
@@ -163,7 +163,7 @@ static void handleRoot()
     server.send(200, "text/html", html);
 }
 
-// ── Drive endpoint ─────────────────────────────────────────────────────────
+// Drive endpoint 
 static void handleDrive()
 {
     if (robotMode != MODE_MANUAL) {
@@ -185,7 +185,7 @@ static void handleDrive()
     server.send(200, "text/plain", "Drive: " + d);
 }
 
-// ── Mode endpoint ──────────────────────────────────────────────────────────
+// Mode endpoint 
 static void handleMode()
 {
     motorsStop();
@@ -196,7 +196,7 @@ static void handleMode()
     else                    { robotMode = MODE_IDLE;          server.send(200, "text/plain", "Idle / stopped"); }
 }
 
-// ── Test endpoints ─────────────────────────────────────────────────────────
+// Test endpoints 
 static void handleTest()
 {
     robotMode = MODE_IDLE;
@@ -213,12 +213,12 @@ static void handleTest()
     else                   server.send(400, "text/plain", "Unknown test");
 }
 
-// ── Quick controls ─────────────────────────────────────────────────────────
+// Quick controls 
 static void handleHorn()    { beep(3, 150, 100); server.send(200, "text/plain", "Beeped!"); }
 static void handleLedsOn()  { digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, HIGH); server.send(200, "text/plain", "LEDs ON"); }
 static void handleLedsOff() { digitalWrite(FRONTLAMPS, LOW);  digitalWrite(REARLAMPS, LOW);  server.send(200, "text/plain", "LEDs OFF"); }
 
-// ── Sensor snapshot ────────────────────────────────────────────────────────
+// Sensor snapshot 
 static void handleSensors()
 {
     digitalWrite(TRIG, LOW);  delayMicroseconds(2);
@@ -240,7 +240,7 @@ static void handleSensors()
     server.send(200, "text/plain", out);
 }
 
-// ── Route registration ─────────────────────────────────────────────────────
+// ── Route registration 
 void setupWebServer()
 {
     server.on("/",              handleRoot);
