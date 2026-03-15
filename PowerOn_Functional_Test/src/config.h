@@ -72,5 +72,15 @@
 #define WALL_STOP_CM 18    // stop & turn when obstacle ≤ this
 #define TURN_90_MS 430    // time for ~90° pivot at SPEED_TURN
 
+// Line sensor analog threshold
+// Sensor outputs HIGHER analog values over black tape (tape absorbs IR, transistor conducts less).
+// Readings above this value are treated as "on line".
+// Tune by running test 5 and observing on-tape vs off-tape analog values.
+#define LINE_SENSOR_THRESHOLD  2000
+
+// Line follower (single IR sensor — bang-bang edge tracking)
+#define LINE_FOLLOW_SPEED  SPEED_MED  // base drive speed while following
+#define LINE_INNER_RATIO   4          // inner-wheel divisor for gentle curves (1=pivot, 2=moderate, 4=gentle)
+
 // Web watchdog: stop motors if no /drive command within this window (ms)
 #define WEB_WATCHDOG_MS 600

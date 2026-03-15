@@ -150,7 +150,7 @@ void beep(int count, int onMs, int offMs) {
 // Sensor helpers
 
 static bool onLine() {
-    return digitalRead(IR_RECEIVE) == LINE_DETECT_LEVEL;
+    return analogRead(IR_RECEIVE) > webThreshold;
 }
 
 static long readUltrasonic() {
@@ -270,12 +270,19 @@ void testLineSensor() {
     Serial.println("TEST 5: Line Sensor - place/remove line now (10 s)");
     beep(2, 200, 200);
 
-    int initial = digitalRead(IR_RECEIVE);
+    bool initialOnLine = onLine();
+    Serial.print("  Initial state: "); Serial.print(initialOnLine ? "ON LINE" : "off line");
+    Serial.print("  (analog="); Serial.print(analogRead(IR_RECEIVE));
+    Serial.print(", threshold="); Serial.print(webThreshold); Serial.println(")");
     bool changed = false;
     unsigned long t0 = millis();
     while (millis() - t0 < 10000UL) {
-        if (digitalRead(IR_RECEIVE) != initial) { changed = true; break; }
-        delay(50);
+        int aval = analogRead(IR_RECEIVE);
+        bool state = onLine();
+        Serial.print("  analog="); Serial.print(aval);
+        Serial.println(state ? "  [ON LINE]" : "  [off line]");
+        if (state != initialOnLine) { changed = true; break; }
+        delay(500);
     }
     testResults += changed ? "TEST 5  Line Sensor    PASS\n"
                            : "TEST 5  Line Sensor    FAIL (no transition)\n";
@@ -359,6 +366,66 @@ static void runMazeSolve() {
     }
 }
 
+// Line sensor calibration — call with robot sitting ON the tape
+void lineFollowCalibrate() {
+    Serial.println("  LF calibrating — place robot ON the tape, holding still...");
+    beep(1, 150, 0);
+    delay(500);
+    long sum = 0;
+    for (int i = 0; i < 30; i++) {
+        sum += analogRead(IR_RECEIVE);
+        delay(10);
+    }
+    int tapePeak = (int)(sum / 30);
+    webThreshold = tapePeak - 600;
+    Serial.print("  LF tape reading="); Serial.print(tapePeak);
+    Serial.print("  webThreshold="); Serial.print(webThreshold);
+    Serial.print("  verify readback="); Serial.println((int)webThreshold);
+    beep(2, 80, 80);
+}
+
+// Autonomous: Line Follow
+/*
+ * Single IR sensor bang-bang edge tracker.
+ *   Sensor ON tape  → curve right  (steer toward right edge, away from tape)
+ *   Sensor OFF tape → curve left   (sweep back to re-acquire tape)
+ * The robot rides the left edge of the black tape and continuously corrects.
+ */
+static void runLineFollow() {
+    static int dbgCount = 0;
+    int aval = analogRead(IR_RECEIVE);
+    bool line = aval > LINE_SENSOR_THRESHOLD;
+
+    if (++dbgCount >= 20) {
+        dbgCount = 0;
+        Serial.print("  LF analog="); Serial.print(aval);
+        Serial.print(" thr="); Serial.print(webThreshold);
+        Serial.print(line ? "  [ON LINE]" : "  [off line]");
+        Serial.println(line ? " → curve RIGHT" : " → curve LEFT");
+    }
+
+    if (line) {
+        // Sensor sees black tape — steer right to ride the left edge
+        digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, LOW);  // visual: front = curving right
+        digitalWrite(RMOTOR_1A, HIGH);
+        digitalWrite(RMOTOR_2A, LOW);
+        digitalWrite(LMOTOR_3A, HIGH);
+        digitalWrite(LMOTOR_4A, LOW);
+        ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO);
+        ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED);
+    } else {
+        // Lost the tape — steer left to sweep back onto it
+        digitalWrite(FRONTLAMPS, LOW); digitalWrite(REARLAMPS, HIGH);  // visual: rear = curving left
+        digitalWrite(RMOTOR_1A, HIGH);
+        digitalWrite(RMOTOR_2A, LOW);
+        digitalWrite(LMOTOR_3A, HIGH);
+        digitalWrite(LMOTOR_4A, LOW);
+        ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED);
+        ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO);
+    }
+    delay(15);
+}
+
 // Serial menu
 
 static void printMenu() {;
@@ -368,6 +435,7 @@ static void printMenu() {;
     Serial.println("A    Run all tests");
     Serial.println("M    Manual (web driver)");
     Serial.println("Z    Maze-solve mode");
+    Serial.println("L    Line-follow mode");
     Serial.println("S    Stop / idle");
     Serial.print("Select: ");
 }
@@ -404,6 +472,10 @@ static void handleSerial() {
             mazeStuckCount = 0;
             beep(3, 80, 80);
             Serial.println(">> Maze-solve mode started"); break;
+        case 'L': case 'l':
+            lineFollowCalibrate();
+            robotMode = MODE_LINE_FOLLOW;
+            Serial.println(">> Line-follow mode started"); break;
         case 'S': case 's':
             Serial.println(">> Stopped / idle"); break;
         default: break;
@@ -431,8 +503,8 @@ void setup() {
     digitalWrite(TRIG, LOW);
 
     // Inputs
-    pinMode(ECHO, INPUT); 
-    pinMode(IR_RECEIVE, INPUT);
+    pinMode(ECHO, INPUT);
+    pinMode(IR_RECEIVE, INPUT_PULLUP);
     pinMode(RENCODER_A, INPUT_PULLUP); 
     pinMode(RENCODER_B, INPUT_PULLUP);
     pinMode(LENCODER_A, INPUT_PULLUP); 
@@ -502,9 +574,9 @@ void loop() {
     webServerLoop();
     handleSerial();
 
-    // Sonar: poll every 200 ms (maze-solve does its own reads, skip to avoid conflict)
+    // Sonar: poll every 200 ms (skip modes that do their own reads or need tight timing)
     static unsigned long lastSonarMs = 0;
-    if (robotMode != MODE_MAZE_SOLVE && millis() - lastSonarMs >= 200) {
+    if (robotMode != MODE_MAZE_SOLVE && robotMode != MODE_LINE_FOLLOW && millis() - lastSonarMs >= 200) {
         sonarCm = readUltrasonic();
         lastSonarMs = millis();
     }
@@ -523,6 +595,10 @@ void loop() {
 
         case MODE_MAZE_SOLVE:
             runMazeSolve();
+            break;
+
+        case MODE_LINE_FOLLOW:
+            runLineFollow();
             break;
     }
 }

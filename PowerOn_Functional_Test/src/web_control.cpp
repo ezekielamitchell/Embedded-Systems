@@ -3,13 +3,15 @@
 #include <WebServer.h>
 
 // Shared state definitions
-volatile RobotMode      robotMode  = MODE_IDLE;
-volatile int            webSpeed   = MOTOR_FULL_DUTY;
-volatile unsigned long  lastWebCmd = 0;
+volatile RobotMode      robotMode     = MODE_IDLE;
+volatile int            webSpeed      = MOTOR_FULL_DUTY;
+volatile int            webThreshold  = LINE_SENSOR_THRESHOLD;
+volatile unsigned long  lastWebCmd    = 0;
 
 // Hardware helpers defined in main.cpp
 void beep(int count, int onMs, int offMs);
 void motorsStop();
+void lineFollowCalibrate();
 void driveForward(int spd);
 void driveReverse(int spd);
 void pivotLeft(int spd);
@@ -111,6 +113,8 @@ static void handleRoot()
   <div class="row">
     <button class="gray" onclick="cmd('/mode/manual')">&#128073; Manual</button>
     <button class="grn"  onclick="cmd('/mode/maze')">&#127992; Maze Solve</button>
+    <button class="grn"  onclick="cmd('/mode/line')">&#11835; Line Follow</button>
+    <button class="amber" onclick="cmd('/calibrate/line')">&#127919; Cal IR</button>
     <button class="red"  onclick="cmd('/mode/idle')">&#9632; Stop</button>
   </div>
 
@@ -125,6 +129,10 @@ static void handleRoot()
   <label>Speed: <span id="spdVal">255</span>
     <input id="spd" type="range" min="80" max="255" value="255"
            oninput="document.getElementById('spdVal').innerText=this.value">
+  </label>
+  <label>IR Threshold: <span id="thrVal">2000</span>
+    <input id="thr" type="range" min="0" max="4095" value="2000"
+           oninput="document.getElementById('thrVal').innerText=this.value; cmd('/threshold?val='+this.value)">
   </label>
 
   <h2>&#128295; Quick Controls</h2>
@@ -191,6 +199,7 @@ static void handleMode()
     String m = server.uri().substring(6); // after "/mode/"
     if      (m == "manual") { robotMode = MODE_MANUAL;      server.send(200, "text/plain", "Manual (driver) mode"); }
     else if (m == "maze")   { robotMode = MODE_MAZE_SOLVE;   server.send(200, "text/plain", "Maze-solve autonomous started"); }
+    else if (m == "line")   { lineFollowCalibrate(); robotMode = MODE_LINE_FOLLOW;  server.send(200, "text/plain", "Line-follow started (calibrated ON tape) — check serial"); }
     else                    { robotMode = MODE_IDLE;          server.send(200, "text/plain", "Idle / stopped"); }
 }
 
@@ -211,7 +220,23 @@ static void handleTest()
     else                   server.send(400, "text/plain", "Unknown test");
 }
 
-// Quick controls 
+// Calibrate line sensor endpoint
+static void handleCalibrateIR()
+{
+    motorsStop();
+    lineFollowCalibrate();
+    server.send(200, "text/plain", "Calibrated — threshold=" + String(webThreshold));
+}
+
+// Threshold endpoint
+static void handleThreshold()
+{
+    if (server.hasArg("val"))
+        webThreshold = constrain(server.arg("val").toInt(), 0, 4095);
+    server.send(200, "text/plain", "Threshold: " + String(webThreshold));
+}
+
+// Quick controls
 static void handleHorn()    { beep(3, 150, 100); server.send(200, "text/plain", "Beeped!"); }
 static void handleLedsOn()  { digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, HIGH); server.send(200, "text/plain", "LEDs ON"); }
 static void handleLedsOff() { digitalWrite(FRONTLAMPS, LOW);  digitalWrite(REARLAMPS, LOW);  server.send(200, "text/plain", "LEDs OFF"); }
@@ -224,13 +249,15 @@ static void handleSensors()
     digitalWrite(TRIG, LOW);
     long dist = pulseIn(ECHO, HIGH, 25000UL) / 58L;
 
-    int ir    = digitalRead(IR_RECEIVE);
+    int ir    = analogRead(IR_RECEIVE);
     int light = analogRead(DAYNIGHT);
+    bool onLine = ir > webThreshold;
 
-    const char* modeStr[] = {"IDLE", "MANUAL", "MAZE_SOLVE"};
+    const char* modeStr[] = {"IDLE", "MANUAL", "MAZE_SOLVE", "LINE_FOLLOW"};
     String out  = "Mode       : "; out += modeStr[(int)robotMode]; out += "\n";
     out += "IR sensor  : "; out += ir;
-    out += (ir == LINE_DETECT_LEVEL ? "  [ON LINE]\n" : "  [off line]\n");
+    out += (onLine ? "  [ON LINE]\n" : "  [off line]\n");
+    out += "IR threshold: "; out += webThreshold; out += "\n";
     out += "Light(ADC) : "; out += light; out += "\n";
     out += "Ultrasonic : ";
     out += (dist > 0 ? String(dist) + " cm" : "no echo"); out += "\n";
@@ -254,9 +281,13 @@ void setupWebServer()
     server.on("/drive/right",   handleDrive);
     server.on("/drive/stop",    handleDrive);
 
+    server.on("/calibrate/line", handleCalibrateIR);
+    server.on("/threshold",     handleThreshold);
+
     server.on("/mode/idle",     handleMode);
     server.on("/mode/manual",   handleMode);
     server.on("/mode/maze",     handleMode);
+    server.on("/mode/line",     handleMode);
 
     server.on("/test/1",        handleTest);
     server.on("/test/2",        handleTest);
