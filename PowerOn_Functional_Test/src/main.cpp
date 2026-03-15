@@ -12,8 +12,7 @@
  *   6. Ultrasonic    5 distance readings (HC-SR04 on TRIG=4 / ECHO=27)
  *   7. Completion    fanfare
  *
- * Autonomous Modes:
- *   Line Follow  — single-sensor left-edge follower (GPIO 32)
+ * Autonomous Mode:
  *   Maze Solve   — right-hand-rule with front ultrasonic
  *
  * Driver Mode:
@@ -321,55 +320,6 @@ void runAllTests() {
     Serial.println("=== ALL TESTS COMPLETE ===\n");
 }
 
-// Autonomous: Line Follow
-/*
- * Single IR sensor (GPIO 32) positioned at the LEFT edge of black tape.
- * LINE_DETECT_LEVEL 0 → sensor outputs LOW when over black (tape).
- *
- * Bang-bang edge follower — three states:
- *   ON  LINE → steer right  (keep sensor at tape edge)
- *   OFF LINE → steer left   (recover back onto tape)
- *   LOST     → slow pivot left to sweep and re-acquire
- *
- * lfRight / lfLeft stop the inner wheel entirely for sharp, fast corrections.
- */
-static void lfRight(int spd) {
-    // Left wheel drives, right wheel stops → sharp right curve
-    digitalWrite(RMOTOR_1A, LOW);  digitalWrite(RMOTOR_2A, LOW);
-    digitalWrite(LMOTOR_3A, HIGH); digitalWrite(LMOTOR_4A, LOW);
-    ledcWrite(RMOTOR_CH, 0);
-    ledcWrite(LMOTOR_CH, spd);
-}
-
-static void lfLeft(int spd) {
-    // Right wheel drives, left wheel stops → sharp left curve
-    digitalWrite(RMOTOR_1A, HIGH); digitalWrite(RMOTOR_2A, LOW);
-    digitalWrite(LMOTOR_3A, LOW);  digitalWrite(LMOTOR_4A, LOW);
-    ledcWrite(RMOTOR_CH, spd);
-    ledcWrite(LMOTOR_CH, 0);
-}
-
-static void runLineFollow() {
-    static unsigned long lastOnLineMs = 0;
-    unsigned long now = millis();
-    bool line = onLine();
-
-    if (line) {
-        // Sensor sees black tape — steer right to track left edge
-        lastOnLineMs = now;
-        lfRight(LF_SPEED);
-    } else {
-        unsigned long lostMs = now - lastOnLineMs;
-        if (lostMs < LF_RECOVER_MS) {
-            // Recently lost — steer left to recover
-            lfLeft(LF_SPEED);
-        } else {
-            // Tape completely lost — pivot slowly to sweep and re-acquire
-            pivotLeft(SPEED_SLOW);
-        }
-    }
-}
-
 // Autonomous: Maze Solve
 /*
  * Right-hand-rule with front ultrasonic.
@@ -417,7 +367,6 @@ static void printMenu() {;
     Serial.println("1-6  Run individual test");
     Serial.println("A    Run all tests");
     Serial.println("M    Manual (web driver)");
-    Serial.println("L    Line-follow mode");
     Serial.println("Z    Maze-solve mode");
     Serial.println("S    Stop / idle");
     Serial.print("Select: ");
@@ -450,10 +399,6 @@ static void handleSerial() {
         case 'M': case 'm':
             robotMode = MODE_MANUAL;
             Serial.println(">> Manual (driver) mode"); break;
-        case 'L': case 'l':
-            robotMode = MODE_LINE_FOLLOW;
-            beep(2, 100, 100);
-            Serial.println(">> Line-follow mode started"); break;
         case 'Z': case 'z':
             robotMode = MODE_MAZE_SOLVE;
             mazeStuckCount = 0;
@@ -574,10 +519,6 @@ void loop() {
             if (millis() - lastWebCmd > WEB_WATCHDOG_MS) {
                 motorsStop();
             }
-            break;
-
-        case MODE_LINE_FOLLOW:
-            runLineFollow();
             break;
 
         case MODE_MAZE_SOLVE:

@@ -110,7 +110,6 @@ static void handleRoot()
   <h2>&#127922; Operating Mode</h2>
   <div class="row">
     <button class="gray" onclick="cmd('/mode/manual')">&#128073; Manual</button>
-    <button class="grn"  onclick="cmd('/mode/line')">&#128204; Line Follow</button>
     <button class="grn"  onclick="cmd('/mode/maze')">&#127992; Maze Solve</button>
     <button class="red"  onclick="cmd('/mode/idle')">&#9632; Stop</button>
   </div>
@@ -191,7 +190,6 @@ static void handleMode()
     motorsStop();
     String m = server.uri().substring(6); // after "/mode/"
     if      (m == "manual") { robotMode = MODE_MANUAL;      server.send(200, "text/plain", "Manual (driver) mode"); }
-    else if (m == "line")   { robotMode = MODE_LINE_FOLLOW;  server.send(200, "text/plain", "Line-follow autonomous started"); }
     else if (m == "maze")   { robotMode = MODE_MAZE_SOLVE;   server.send(200, "text/plain", "Maze-solve autonomous started"); }
     else                    { robotMode = MODE_IDLE;          server.send(200, "text/plain", "Idle / stopped"); }
 }
@@ -229,7 +227,7 @@ static void handleSensors()
     int ir    = digitalRead(IR_RECEIVE);
     int light = analogRead(DAYNIGHT);
 
-    const char* modeStr[] = {"IDLE", "MANUAL", "LINE_FOLLOW", "MAZE_SOLVE"};
+    const char* modeStr[] = {"IDLE", "MANUAL", "MAZE_SOLVE"};
     String out  = "Mode       : "; out += modeStr[(int)robotMode]; out += "\n";
     out += "IR sensor  : "; out += ir;
     out += (ir == LINE_DETECT_LEVEL ? "  [ON LINE]\n" : "  [off line]\n");
@@ -258,7 +256,6 @@ void setupWebServer()
 
     server.on("/mode/idle",     handleMode);
     server.on("/mode/manual",   handleMode);
-    server.on("/mode/line",     handleMode);
     server.on("/mode/maze",     handleMode);
 
     server.on("/test/1",        handleTest);

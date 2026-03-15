@@ -2,7 +2,7 @@
 #include <Arduino.h>
 
 // ── Robot operating mode ───────────────────────────────────────────────────
-enum RobotMode { MODE_IDLE, MODE_MANUAL, MODE_LINE_FOLLOW, MODE_MAZE_SOLVE };
+enum RobotMode { MODE_IDLE, MODE_MANUAL, MODE_MAZE_SOLVE };
 extern volatile RobotMode robotMode;
 
 // ── Shared state written by the web server, read by main.cpp ──────────────
