@@ -196,6 +196,7 @@ static void handleDrive()
 static void handleMode()
 {
     motorsStop();
+    lastWebCmd = 0;  // force watchdog to fire until a fresh drive command arrives
     String m = server.uri().substring(6); // after "/mode/"
     if      (m == "manual") { robotMode = MODE_MANUAL;      server.send(200, "text/plain", "Manual (driver) mode"); }
     else if (m == "maze")   { robotMode = MODE_MAZE_SOLVE;   server.send(200, "text/plain", "Maze-solve autonomous started"); }
