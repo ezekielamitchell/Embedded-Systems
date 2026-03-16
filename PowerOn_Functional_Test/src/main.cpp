@@ -71,7 +71,6 @@ void handleCommand(String cmd) {
 }
 
 // Motor helpers
-
 void motorsStop() {
     ledcWrite(RMOTOR_CH, 0);
     ledcWrite(LMOTOR_CH, 0);
@@ -148,7 +147,6 @@ void beep(int count, int onMs, int offMs) {
 }
 
 // Sensor helpers
-
 static bool onLine() {
     return analogRead(IR_RECEIVE) > webThreshold;
 }
@@ -172,7 +170,6 @@ static void blinkLamp(int pin, int count, int onMs, int offMs) {
 }
 
 // Functional tests (test-plan numbering)
-
 void testHorn() {
     Serial.println("TEST 1: Horn - 5 beeps (400 ms on / 300 ms off)");
     beep(5, 400, 300);
@@ -387,47 +384,52 @@ void lineFollowCalibrate() {
 // Autonomous: Line Follow
 /*
  * Single IR sensor bang-bang edge tracker.
- *   Sensor ON tape  → curve right  (steer toward right edge, away from tape)
- *   Sensor OFF tape → curve left   (sweep back to re-acquire tape)
- * The robot rides the left edge of the black tape and continuously corrects.
+ * Higher analog value = darker surface (black tape absorbs IR → less reflection → transistor conducts more).
+ * Only triggers when reading clears webThreshold — ignores anything lighter than solid black tape.
+ *
+ * Edge-tracking strategy (rides left edge of tape):
+ *   ON tape  (aval > webThreshold) → steer right (slow right motor)
+ *   OFF tape (aval ≤ webThreshold) → steer left  (slow left motor) to sweep back
  */
 static void runLineFollow() {
-    static int dbgCount = 0;
-    int aval = analogRead(IR_RECEIVE);
-    bool line = aval > LINE_SENSOR_THRESHOLD;
+    int aval    = analogRead(IR_RECEIVE);
+    bool onLine = aval > (int)webThreshold;   // webThreshold set by web slider
 
+    // Counts consecutive off-tape reads — used to escalate recovery aggressiveness
+    static int offCount = 0;
+
+    static int dbgCount = 0;
     if (++dbgCount >= 20) {
         dbgCount = 0;
         Serial.print("  LF analog="); Serial.print(aval);
-        Serial.print(" thr="); Serial.print(webThreshold);
-        Serial.print(line ? "  [ON LINE]" : "  [off line]");
-        Serial.println(line ? " → curve RIGHT" : " → curve LEFT");
+        Serial.print(" thr="); Serial.print((int)webThreshold);
+        Serial.println(onLine ? "  [ON LINE] → steer RIGHT" : "  [off line] → steer LEFT");
     }
 
-    if (line) {
-        // Sensor sees black tape — steer right to ride the left edge
-        digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, LOW);  // visual: front = curving right
-        digitalWrite(RMOTOR_1A, HIGH);
-        digitalWrite(RMOTOR_2A, LOW);
-        digitalWrite(LMOTOR_3A, HIGH);
-        digitalWrite(LMOTOR_4A, LOW);
-        ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO);
+    // Both motors always spin forward — only the PWM duty differs to steer
+    digitalWrite(RMOTOR_1A, HIGH); digitalWrite(RMOTOR_2A, LOW);
+    digitalWrite(LMOTOR_3A, HIGH); digitalWrite(LMOTOR_4A, LOW);
+
+    if (onLine) {
+        offCount = 0;
+        // Solid black detected — steer right to ride the left edge
+        digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, LOW);
+        ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO); // slow inside wheel
         ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED);
     } else {
-        // Lost the tape — steer left to sweep back onto it
-        digitalWrite(FRONTLAMPS, LOW); digitalWrite(REARLAMPS, HIGH);  // visual: rear = curving left
-        digitalWrite(RMOTOR_1A, HIGH);
-        digitalWrite(RMOTOR_2A, LOW);
-        digitalWrite(LMOTOR_3A, HIGH);
-        digitalWrite(LMOTOR_4A, LOW);
+        offCount++;
+        // Lost the line — sweep left to re-acquire.
+        // After ~75 ms off tape (5 cycles × 15 ms), stop the inner wheel entirely
+        // for a hard pivot instead of a gentle curve.
+        int innerSpeed = (offCount > 5) ? 0 : LINE_FOLLOW_SPEED / LINE_INNER_RATIO;
+        digitalWrite(FRONTLAMPS, LOW); digitalWrite(REARLAMPS, HIGH);
         ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED);
-        ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO);
+        ledcWrite(LMOTOR_CH, innerSpeed);
     }
     delay(15);
 }
 
 // Serial menu
-
 static void printMenu() {;
     Serial.println("    Robot Serial Menu:    ");
     Serial.println("|========================|");
@@ -484,7 +486,6 @@ static void handleSerial() {
 }
 
 // setup
-
 void setup() {
     Serial.begin(115200);
     delay(500);
@@ -561,7 +562,6 @@ void setup() {
 }
 
 // loop
-
 void loop() {
     // UDP command listener
     int packetSize = udp.parsePacket();

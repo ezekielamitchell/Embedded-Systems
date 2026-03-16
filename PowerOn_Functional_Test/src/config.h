@@ -49,8 +49,9 @@
 #define LMOTOR_CH 2
 
 // Wi-Fi credentials (station mode - not used when running as soft AP)
-#define WIFI_SSID "SU-ECE-LAB"
-#define WIFI_PASS "FaraDay8086!"
+#define WIFI_SSID "endr"
+#define WIFI_PASS "SeattleUniversity01$$"
+
 
 // Access point credentials (ESP32 hosts the network)
 #define AP_SSID "ezekielRobot"
@@ -76,7 +77,7 @@
 // Sensor outputs HIGHER analog values over black tape (tape absorbs IR, transistor conducts less).
 // Readings above this value are treated as "on line".
 // Tune by running test 5 and observing on-tape vs off-tape analog values.
-#define LINE_SENSOR_THRESHOLD  2000
+#define LINE_SENSOR_THRESHOLD  650
 
 // Line follower (single IR sensor — bang-bang edge tracking)
 #define LINE_FOLLOW_SPEED  SPEED_MED  // base drive speed while following
