@@ -49,8 +49,8 @@
 #define LMOTOR_CH 2
 
 // Wi-Fi credentials (station mode - not used when running as soft AP)
-#define WIFI_SSID "endr"
-#define WIFI_PASS "SeattleUniversity01$$"
+#define WIFI_SSID "SU-ECE-LAB"
+#define WIFI_PASS "FaraDay8086!"
 
 
 // Access point credentials (ESP32 hosts the network)

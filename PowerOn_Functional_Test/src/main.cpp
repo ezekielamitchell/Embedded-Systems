@@ -393,38 +393,48 @@ void lineFollowCalibrate() {
  */
 static void runLineFollow() {
     int aval    = analogRead(IR_RECEIVE);
-    bool onLine = aval > (int)webThreshold;   // webThreshold set by web slider
+    bool onLine = aval > (int)webThreshold;
 
-    // Counts consecutive off-tape reads — used to escalate recovery aggressiveness
-    static int offCount = 0;
+    static int offCount  = 0;  // consecutive off-tape reads
+    static int onStreak  = 0;  // consecutive on-tape reads (hysteresis)
 
     static int dbgCount = 0;
     if (++dbgCount >= 20) {
         dbgCount = 0;
         Serial.print("  LF analog="); Serial.print(aval);
         Serial.print(" thr="); Serial.print((int)webThreshold);
-        Serial.println(onLine ? "  [ON LINE] → steer RIGHT" : "  [off line] → steer LEFT");
+        Serial.print(onLine ? "  [ON LINE]" : "  [off line]");
+        Serial.print("  streak="); Serial.print(onStreak);
+        Serial.print("  offCount="); Serial.println(offCount);
     }
 
-    // Both motors always spin forward — only the PWM duty differs to steer
     digitalWrite(RMOTOR_1A, HIGH); digitalWrite(RMOTOR_2A, LOW);
     digitalWrite(LMOTOR_3A, HIGH); digitalWrite(LMOTOR_4A, LOW);
 
     if (onLine) {
+        onStreak++;
         offCount = 0;
-        // Solid black detected — steer right to ride the left edge
-        digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, LOW);
-        ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO); // slow inside wheel
-        ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED);
+
+        if (onStreak >= 3) {
+            // 3 consecutive on-tape reads — confirmed back on line, resume normal tracking
+            digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, LOW);
+            ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO);
+            ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED);
+        } else {
+            // Still in confirmation window — hold recovery pivot so a stray edge
+            // reading doesn't prematurely flip us back to steering away from tape
+            ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED);
+            ledcWrite(LMOTOR_CH, 0);
+        }
     } else {
+        onStreak = 0;
         offCount++;
-        // Lost the line — sweep left to re-acquire.
-        // After ~75 ms off tape (5 cycles × 15 ms), stop the inner wheel entirely
-        // for a hard pivot instead of a gentle curve.
-        int innerSpeed = (offCount > 5) ? 0 : LINE_FOLLOW_SPEED / LINE_INNER_RATIO;
         digitalWrite(FRONTLAMPS, LOW); digitalWrite(REARLAMPS, HIGH);
+
+        // Hard pivot left — outer wheel full, inner stopped.
+        // Hold this turn continuously until the line is re-acquired.
         ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED);
-        ledcWrite(LMOTOR_CH, innerSpeed);
+        ledcWrite(LMOTOR_CH, 0);
     }
     delay(15);
 }
