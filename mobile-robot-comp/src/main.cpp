@@ -333,32 +333,46 @@ void runAllTests() {
 static int mazeStuckCount = 0;
 
 static void runMazeSolve() {
-    long dist = readUltrasonic();
-    bool blocked = (dist > 0 && dist <= WALL_STOP_CM);
+    long dist      = readUltrasonic();
+    bool wallAhead = (dist > 0 && dist <= WALL_STOP_CM);
+    bool lineAhead = onLine();   // black or red tape barrier — both absorb IR
+    bool blocked   = wallAhead || lineAhead;
 
     if (!blocked) {
         driveForward(MAZE_SPEED);
         mazeStuckCount = 0;
         delay(80);
     } else {
-        motorsStop(); 
+        motorsStop();
         delay(100);
         mazeStuckCount++;
 
+        // Back away from barrier before turning
+        driveReverse(SPEED_SLOW);
+        delay(lineAhead ? 450 : 250);   // back up further if line sensor triggered
+        motorsStop();
+        delay(100);
+
         if (mazeStuckCount > 8) {
-            driveReverse(SPEED_SLOW); 
-            delay(500);
+            // Truly stuck — ~180° turn to escape
+            pivotRight(SPEED_TURN);
+            delay(TURN_90_MS * 2);
             motorsStop();
             mazeStuckCount = 0;
         } else {
-            pivotRight(SPEED_TURN); 
+            pivotRight(SPEED_TURN);
             delay(TURN_90_MS);
-            motorsStop(); 
+            motorsStop();
             delay(150);
         }
-        Serial.print("  Maze: obstacle "); 
-        Serial.print(dist);
-        Serial.print(" cm, turn "); 
+
+        if (lineAhead) {
+            Serial.print("  Maze: tape barrier (black/red), turn ");
+        } else {
+            Serial.print("  Maze: wall obstacle ");
+            Serial.print(dist);
+            Serial.print(" cm, turn ");
+        }
         Serial.println(mazeStuckCount);
     }
 }
