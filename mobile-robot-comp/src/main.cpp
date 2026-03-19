@@ -407,7 +407,11 @@ void lineFollowCalibrate() {
  */
 static void runLineFollow() {
     int aval    = analogRead(IR_RECEIVE);
-    bool onLine = aval > (int)webThreshold;
+    bool onLine  = aval > (int)webThreshold;
+    // Dark lines (red/black) absorb IR → high analog value → turn inward (steer right).
+    // Light lines (green/blue) reflect more IR → lower analog value but still above
+    // webThreshold → turn outward (steer left).
+    bool darkLine = aval > LINE_COLOR_THRESHOLD;
 
     static int offCount  = 0;  // consecutive off-tape reads
     static int onStreak  = 0;  // consecutive on-tape reads (hysteresis)
@@ -417,7 +421,8 @@ static void runLineFollow() {
         dbgCount = 0;
         Serial.print("  LF analog="); Serial.print(aval);
         Serial.print(" thr="); Serial.print((int)webThreshold);
-        Serial.print(onLine ? "  [ON LINE]" : "  [off line]");
+        Serial.print(" colorThr="); Serial.print(LINE_COLOR_THRESHOLD);
+        Serial.print(onLine ? (darkLine ? "  [RED/BLACK]" : "  [GREEN/BLUE]") : "  [off line]");
         Serial.print("  streak="); Serial.print(onStreak);
         Serial.print("  offCount="); Serial.println(offCount);
     }
@@ -430,10 +435,17 @@ static void runLineFollow() {
         offCount = 0;
 
         if (onStreak >= 3) {
-            // 3 consecutive on-tape reads — confirmed back on line, resume normal tracking
+            // 3 consecutive on-tape reads — confirmed on line, steer by colour.
             digitalWrite(FRONTLAMPS, HIGH); digitalWrite(REARLAMPS, LOW);
-            ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO);
-            ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED);
+            if (darkLine) {
+                // Red/black — turn inward: slow right motor, left motor full
+                ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO);
+                ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED);
+            } else {
+                // Green/blue — turn outward: slow left motor, right motor full
+                ledcWrite(RMOTOR_CH, LINE_FOLLOW_SPEED);
+                ledcWrite(LMOTOR_CH, LINE_FOLLOW_SPEED / LINE_INNER_RATIO);
+            }
         } else {
             // Still in confirmation window — hold recovery pivot so a stray edge
             // reading doesn't prematurely flip us back to steering away from tape

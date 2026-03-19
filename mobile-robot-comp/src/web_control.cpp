@@ -63,7 +63,9 @@ static void handleRoot()
     input[type=range] { width:100%; }
   </style>
   <script>
-    let driveTimer = null;
+    let lastDir = '', lastSpd = 0;
+    let lastCmdTime = 0;
+    const CMD_INTERVAL_MS = 80; // max ~12 commands/sec
 
     function cmd(path, cb) {
       fetch(path).then(r => r.text()).then(t => {
@@ -72,26 +74,87 @@ static void handleRoot()
       });
     }
 
-    // Hold-to-drive: repeat request while button held
-    function startDrive(dir) {
-      const go = () => {
-        const spd = document.getElementById('spd').value;
-        cmd('/drive/' + dir + '?spd=' + spd);
+    // Virtual thumb joystick
+    const JOY = (() => {
+      let canvas, ctx, cx, cy, outerR, nubR = 32;
+      let active = false, jX, jY;
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // outer ring
+        ctx.beginPath(); ctx.arc(cx, cy, outerR, 0, Math.PI*2);
+        ctx.strokeStyle = '#4cf'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fillStyle = 'rgba(68,204,255,0.07)'; ctx.fill();
+        // direction labels
+        ctx.fillStyle = '#4cf'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('\u25b2', cx, cy - outerR + 18);
+        ctx.fillText('\u25bc', cx, cy + outerR - 6);
+        ctx.fillText('\u25c4', cx - outerR + 12, cy + 5);
+        ctx.fillText('\u25ba', cx + outerR - 8, cy + 5);
+        // nub
+        ctx.beginPath(); ctx.arc(jX, jY, nubR, 0, Math.PI*2);
+        ctx.fillStyle = active ? '#4cf' : '#555'; ctx.fill();
+        ctx.strokeStyle = active ? '#9ef' : '#888'; ctx.lineWidth = 2; ctx.stroke();
+      }
+
+      function calcCmd(dx, dy) {
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < outerR * 0.15) return {dir:'stop', spd:0};
+        const maxSpd = parseInt(document.getElementById('spd').value);
+        const t = Math.min((dist - outerR * 0.15) / (outerR * 0.85), 1); // smooth ramp from dead zone edge
+        const spd = Math.round((60 + (maxSpd - 60) * t) / 5) * 5; // quantize to ±5 to suppress micro-updates
+        const dir = Math.abs(dy) >= Math.abs(dx)
+          ? (dy < 0 ? 'fwd' : 'rev')
+          : (dx > 0 ? 'right' : 'left');
+        return {dir, spd};
+      }
+
+      function sendCmd(dx, dy) {
+        const {dir, spd} = calcCmd(dx, dy);
+        const now = Date.now();
+        if (dir === lastDir && spd === lastSpd) return;
+        if (now - lastCmdTime < CMD_INTERVAL_MS) return; // rate limit
+        lastDir = dir; lastSpd = spd; lastCmdTime = now;
+        cmd('/drive/' + dir + (dir !== 'stop' ? '?spd=' + spd : ''));
+      }
+
+      function move(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        let dx = clientX - rect.left - cx;
+        let dy = clientY - rect.top - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > outerR) { dx = dx/dist*outerR; dy = dy/dist*outerR; }
+        jX = cx + dx; jY = cy + dy;
+        sendCmd(dx, dy); draw();
+      }
+
+      function release() {
+        active = false; jX = cx; jY = cy;
+        if (lastDir !== 'stop') { lastDir = 'stop'; lastSpd = 0; cmd('/drive/stop'); }
+        draw();
+      }
+
+      return {
+        init() {
+          canvas = document.getElementById('joystick');
+          ctx = canvas.getContext('2d');
+          cx = canvas.width/2; cy = canvas.height/2;
+          outerR = cx - 14; jX = cx; jY = cy;
+          draw();
+          canvas.addEventListener('mousedown', e => { active=true; move(e.clientX,e.clientY); });
+          canvas.addEventListener('mousemove', e => { if(active) move(e.clientX,e.clientY); });
+          ['mouseup','mouseleave'].forEach(ev => canvas.addEventListener(ev, release));
+          canvas.addEventListener('touchstart', e => {
+            e.preventDefault(); active=true; move(e.touches[0].clientX,e.touches[0].clientY);
+          }, {passive:false});
+          canvas.addEventListener('touchmove', e => {
+            e.preventDefault(); move(e.touches[0].clientX,e.touches[0].clientY);
+          }, {passive:false});
+          ['touchend','touchcancel'].forEach(ev =>
+            canvas.addEventListener(ev, e => { e.preventDefault(); release(); }, {passive:false}));
+        }
       };
-      go();
-      driveTimer = setInterval(go, 380);
-    }
-    function endDrive() {
-      clearInterval(driveTimer); driveTimer = null;
-      cmd('/drive/stop');
-    }
-    function bindDrive(id, dir) {
-      const b = document.getElementById(id);
-      ['mousedown','touchstart'].forEach(ev =>
-        b.addEventListener(ev, e => { e.preventDefault(); startDrive(dir); }, {passive:false}));
-      ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev =>
-        b.addEventListener(ev, endDrive));
-    }
+    })();
 
     function pollSensors() {
       fetch('/sensors').then(r => r.text()).then(t =>
@@ -99,8 +162,7 @@ static void handleRoot()
     }
 
     window.onload = () => {
-      bindDrive('bFwd','fwd'); bindDrive('bRev','rev');
-      bindDrive('bLeft','left'); bindDrive('bRight','right');
+      JOY.init();
       setInterval(pollSensors, 1800);
       pollSensors();
     };
@@ -119,14 +181,9 @@ static void handleRoot()
   </div>
 
   <h2>&#127918; Driver Controls</h2>
-  <div class="row"><button id="bFwd">&#9650; Forward</button></div>
-  <div class="row">
-    <button id="bLeft">&#9664; Left</button>
-    <button class="red" onclick="cmd('/drive/stop')">&#9632; Stop</button>
-    <button id="bRight">&#9654; Right</button>
-  </div>
-  <div class="row"><button id="bRev">&#9660; Reverse</button></div>
-  <label>Speed: <span id="spdVal">255</span>
+  <canvas id="joystick" width="220" height="220"
+          style="display:block;margin:10px auto;touch-action:none;cursor:pointer;"></canvas>
+  <label>Max Speed: <span id="spdVal">255</span>
     <input id="spd" type="range" min="80" max="255" value="255"
            oninput="document.getElementById('spdVal').innerText=this.value">
   </label>
@@ -266,7 +323,7 @@ static void handleSensors()
     server.send(200, "text/plain", out);
 }
 
-// ── Route registration 
+// Route registration 
 void setupWebServer()
 {
     server.on("/",              handleRoot);
