@@ -325,11 +325,6 @@ void runAllTests() {
 }
 
 // Autonomous: Maze Solve
-/*
- * Right-hand-rule with front ultrasonic.
- *   Clear ahead → drive forward.
- *   Obstacle    → pivot right ~90°, recheck; after 8 failed turns back up.
- */
 static int mazeStuckCount = 0;
 
 static void runMazeSolve() {
@@ -396,15 +391,6 @@ void lineFollowCalibrate() {
 }
 
 // Autonomous: Line Follow
-/*
- * Single IR sensor bang-bang edge tracker.
- * Higher analog value = darker surface (black tape absorbs IR → less reflection → transistor conducts more).
- * Only triggers when reading clears webThreshold — ignores anything lighter than solid black tape.
- *
- * Edge-tracking strategy (rides left edge of tape):
- *   ON tape  (aval > webThreshold) → steer right (slow right motor)
- *   OFF tape (aval ≤ webThreshold) → steer left  (slow left motor) to sweep back
- */
 static void runLineFollow() {
     int aval    = analogRead(IR_RECEIVE);
     bool onLine  = aval > (int)webThreshold;
